@@ -13,9 +13,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/crush/internal/agent/hyper"
-	"github.com/charmbracelet/crush/internal/event"
-	"github.com/charmbracelet/crush/internal/oauth"
+	"github.com/ibranraeen/casspr/internal/agent/hyper"
+	"github.com/ibranraeen/casspr/internal/event"
+	"github.com/ibranraeen/casspr/internal/oauth"
 )
 
 // DeviceAuthResponse contains the response from the device authorization endpoint.

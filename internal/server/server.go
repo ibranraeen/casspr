@@ -13,9 +13,9 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/charmbracelet/crush/internal/backend"
-	"github.com/charmbracelet/crush/internal/config"
-	_ "github.com/charmbracelet/crush/internal/swagger"
+	"github.com/ibranraeen/casspr/internal/backend"
+	"github.com/ibranraeen/casspr/internal/config"
+	_ "github.com/ibranraeen/casspr/internal/swagger"
 	httpswagger "github.com/swaggo/http-swagger/v2"
 )
 
@@ -66,16 +66,16 @@ func ParseHostURL(host string) (*url.URL, error) {
 //
 // On Windows the address is a named pipe under \\.\pipe\. On Unix
 // platforms the socket lives in the per-user runtime directory
-// returned by [socketDir] and is named crush-<uid>.sock, falling
-// back to crush.sock when the current uid cannot be determined. If
+// returned by [socketDir] and is named casspr-<uid>.sock, falling
+// back to casspr.sock when the current uid cannot be determined. If
 // the composed path would exceed [maxUnixSocketPathLen] bytes (the
-// macOS sun_path limit), we fall back to /tmp/crush-<uid>.sock so
+// macOS sun_path limit), we fall back to /tmp/casspr-<uid>.sock so
 // the socket remains bindable.
 func DefaultHost() string {
-	sock := "crush.sock"
+	sock := "casspr.sock"
 	usr, err := user.Current()
 	if err == nil && usr.Uid != "" {
-		sock = fmt.Sprintf("crush-%s.sock", usr.Uid)
+		sock = fmt.Sprintf("casspr-%s.sock", usr.Uid)
 	}
 	if runtime.GOOS == "windows" {
 		return fmt.Sprintf("npipe:////./pipe/%s", sock)

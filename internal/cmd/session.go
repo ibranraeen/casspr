@@ -16,14 +16,14 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/colorprofile"
-	"github.com/charmbracelet/crush/internal/agent/tools"
-	"github.com/charmbracelet/crush/internal/config"
-	"github.com/charmbracelet/crush/internal/db"
-	"github.com/charmbracelet/crush/internal/event"
-	"github.com/charmbracelet/crush/internal/message"
-	"github.com/charmbracelet/crush/internal/session"
-	"github.com/charmbracelet/crush/internal/ui/chat"
-	"github.com/charmbracelet/crush/internal/ui/styles"
+	"github.com/ibranraeen/casspr/internal/agent/tools"
+	"github.com/ibranraeen/casspr/internal/config"
+	"github.com/ibranraeen/casspr/internal/db"
+	"github.com/ibranraeen/casspr/internal/event"
+	"github.com/ibranraeen/casspr/internal/message"
+	"github.com/ibranraeen/casspr/internal/session"
+	"github.com/ibranraeen/casspr/internal/ui/chat"
+	"github.com/ibranraeen/casspr/internal/ui/styles"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/x/exp/charmtone"
 	"github.com/charmbracelet/x/term"
@@ -34,7 +34,7 @@ var sessionCmd = &cobra.Command{
 	Use:     "session",
 	Aliases: []string{"sessions", "s"},
 	Short:   "Manage sessions",
-	Long:    "Manage Crush sessions. Agents can use --json for machine-readable output.",
+	Long:    "Manage Casspr sessions. Agents can use --json for machine-readable output.",
 }
 
 var (

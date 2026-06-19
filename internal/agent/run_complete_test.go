@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/charmbracelet/crush/internal/agent/notify"
-	"github.com/charmbracelet/crush/internal/pubsub"
+	"github.com/ibranraeen/casspr/internal/agent/notify"
+	"github.com/ibranraeen/casspr/internal/pubsub"
 	"github.com/stretchr/testify/require"
 )
 

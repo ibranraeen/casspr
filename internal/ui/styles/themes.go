@@ -1,7 +1,21 @@
 package styles
 
 import (
-	"github.com/charmbracelet/x/exp/charmtone"
+	"charm.land/lipgloss/v2"
+)
+
+var (
+	celestialBlue  = lipgloss.Color("#2563EB")
+	spaceNavy      = lipgloss.Color("#1E3A8A")
+	starlightBlue  = lipgloss.Color("#60A5FA")
+	silverWhite    = lipgloss.Color("#F3F4F6")
+	cosmicSilver   = lipgloss.Color("#D1D5DB")
+	nebulaGray     = lipgloss.Color("#9CA3AF")
+	deepSpace      = lipgloss.Color("#0B1120")
+	midnightNebula = lipgloss.Color("#111827")
+	deepGray       = lipgloss.Color("#4B5563")
+	slateGray      = lipgloss.Color("#1E293B")
+	darkBlueGray   = lipgloss.Color("#0F172A")
 )
 
 // ThemeForProvider returns the Styles associated with the given provider
@@ -20,57 +34,57 @@ func ThemeForProvider(providerID string) Styles {
 // for the UI.
 func CharmtonePantera() Styles {
 	s := quickStyle(quickStyleOpts{
-		primary:   charmtone.Charple,
-		secondary: charmtone.Dolly,
-		accent:    charmtone.Bok,
-		keyword:   charmtone.Blush,
+		primary:   celestialBlue,
+		secondary: starlightBlue,
+		accent:    spaceNavy,
+		keyword:   cosmicSilver,
 
-		fgBase:       charmtone.Sash,
-		fgMoreSubtle: charmtone.Squid,
-		fgSubtle:     charmtone.Smoke,
-		fgMostSubtle: charmtone.Oyster,
+		fgBase:       silverWhite,
+		fgMoreSubtle: nebulaGray,
+		fgSubtle:     cosmicSilver,
+		fgMostSubtle: deepGray,
 
-		onPrimary: charmtone.Butter,
+		onPrimary: deepSpace,
 
-		bgBase:         charmtone.Pepper,
-		bgLeastVisible: charmtone.BBQ,
-		bgLessVisible:  charmtone.Char,
-		bgMostVisible:  charmtone.Iron,
+		bgBase:         deepSpace,
+		bgLeastVisible: midnightNebula,
+		bgLessVisible:  darkBlueGray,
+		bgMostVisible:  spaceNavy,
 
-		separator: charmtone.Char,
+		separator: slateGray,
 
-		destructive:       charmtone.Coral,
-		error:             charmtone.Sriracha,
-		warningSubtle:     charmtone.Zest,
-		warning:           charmtone.Mustard,
-		denied:            charmtone.Tang,
-		busy:              charmtone.Citron,
-		info:              charmtone.Malibu,
-		infoMoreSubtle:    charmtone.Sardine,
-		infoMostSubtle:    charmtone.Damson,
-		success:           charmtone.Julep,
-		successMoreSubtle: charmtone.Bok,
-		successMostSubtle: charmtone.Guac,
+		destructive:       lipgloss.Color("#EF4444"),
+		error:             lipgloss.Color("#DC2626"),
+		warningSubtle:     lipgloss.Color("#FBBF24"),
+		warning:           lipgloss.Color("#F59E0B"),
+		denied:            lipgloss.Color("#F97316"),
+		busy:              lipgloss.Color("#EAB308"),
+		info:              starlightBlue,
+		infoMoreSubtle:    celestialBlue,
+		infoMostSubtle:    spaceNavy,
+		success:           lipgloss.Color("#10B981"),
+		successMoreSubtle: lipgloss.Color("#047857"),
+		successMostSubtle: lipgloss.Color("#065F46"),
 	})
 
-	// Bang ! prompt overrides - use Salt/Hazy/Larple colors.
+	// Bang ! prompt overrides - use Celestial colors.
 	s.Editor.PromptBangIconFocused = s.Editor.PromptBangIconFocused.
-		Foreground(charmtone.Salt).
-		Background(charmtone.Hazy)
+		Foreground(silverWhite).
+		Background(celestialBlue)
 	s.Editor.PromptBangDotsFocused = s.Editor.PromptBangDotsFocused.
-		Foreground(charmtone.Hazy)
+		Foreground(celestialBlue)
 	s.Editor.PromptBangDotsBlurred = s.Editor.PromptBangDotsBlurred.
-		Foreground(charmtone.Larple)
+		Foreground(spaceNavy)
 
-	// Shell bar/prompt overrides - use Charple/Iron/Hazy colors.
+	// Shell bar/prompt overrides - use Celestial colors.
 	s.Messages.ShellBarFocused = s.Messages.ShellBarFocused.
-		BorderForeground(charmtone.Charple)
+		BorderForeground(celestialBlue)
 	s.Messages.ShellBarBlurred = s.Messages.ShellBarBlurred.
-		BorderForeground(charmtone.Iron)
+		BorderForeground(cosmicSilver)
 	s.Messages.ShellPrompt = s.Messages.ShellPrompt.
-		Foreground(charmtone.Hazy)
+		Foreground(starlightBlue)
 	s.Messages.ShellPromptBlurred = s.Messages.ShellPromptBlurred.
-		Foreground(charmtone.Hazy)
+		Foreground(starlightBlue)
 
 	return s
 }

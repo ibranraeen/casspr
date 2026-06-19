@@ -13,12 +13,12 @@ import (
 	"time"
 
 	"charm.land/fantasy"
-	"github.com/charmbracelet/crush/internal/agent"
-	"github.com/charmbracelet/crush/internal/app"
-	"github.com/charmbracelet/crush/internal/backend"
-	"github.com/charmbracelet/crush/internal/message"
-	"github.com/charmbracelet/crush/internal/proto"
-	"github.com/charmbracelet/crush/internal/pubsub"
+	"github.com/ibranraeen/casspr/internal/agent"
+	"github.com/ibranraeen/casspr/internal/app"
+	"github.com/ibranraeen/casspr/internal/backend"
+	"github.com/ibranraeen/casspr/internal/message"
+	"github.com/ibranraeen/casspr/internal/proto"
+	"github.com/ibranraeen/casspr/internal/pubsub"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )

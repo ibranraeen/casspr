@@ -1,4 +1,4 @@
-module github.com/charmbracelet/crush
+module github.com/ibranraeen/casspr
 
 go 1.26.4
 

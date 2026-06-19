@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/charmbracelet/crush/internal/proto"
-	"github.com/charmbracelet/crush/internal/pubsub"
+	"github.com/ibranraeen/casspr/internal/proto"
+	"github.com/ibranraeen/casspr/internal/pubsub"
 	"github.com/stretchr/testify/require"
 )
 

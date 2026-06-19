@@ -12,12 +12,12 @@ import (
 	"time"
 
 	"charm.land/catwalk/pkg/catwalk"
-	hyperp "github.com/charmbracelet/crush/internal/agent/hyper"
-	"github.com/charmbracelet/crush/internal/env"
-	"github.com/charmbracelet/crush/internal/lock"
-	"github.com/charmbracelet/crush/internal/oauth"
-	"github.com/charmbracelet/crush/internal/oauth/copilot"
-	"github.com/charmbracelet/crush/internal/oauth/hyper"
+	hyperp "github.com/ibranraeen/casspr/internal/agent/hyper"
+	"github.com/ibranraeen/casspr/internal/env"
+	"github.com/ibranraeen/casspr/internal/lock"
+	"github.com/ibranraeen/casspr/internal/oauth"
+	"github.com/ibranraeen/casspr/internal/oauth/copilot"
+	"github.com/ibranraeen/casspr/internal/oauth/hyper"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
@@ -59,7 +59,7 @@ type ConfigStore struct {
 	workingDir         string
 	resolver           VariableResolver
 	globalDataPath     string   // ~/.local/share/crush/crush.json
-	workspacePath      string   // .crush/crush.json
+	workspacePath      string   // .casspr/crush.json
 	loadedPaths        []string // config files that were successfully loaded
 	knownProviders     []catwalk.Provider
 	overrides          RuntimeOverrides

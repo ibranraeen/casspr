@@ -17,8 +17,8 @@ These are always available without user configuration.
 - The tree is embedded at compile time via `//go:embed builtin/*` in
   `internal/skills/embed.go`.
 - `DiscoverBuiltin()` walks the embedded FS, parses each `SKILL.md`, and sets
-  paths with the `crush://skills/` prefix (e.g., `crush://skills/jq/SKILL.md`).
-- The View tool resolves `crush://` paths from the embedded FS, not disk.
+  paths with the `casspr://skills/` prefix (e.g., `casspr://skills/jq/SKILL.md`).
+- The View tool resolves `casspr://` paths from the embedded FS, not disk.
 - User skills with the same name override builtins (last occurrence wins in
   `Deduplicate()`).
 
@@ -37,6 +37,6 @@ These are always available without user configuration.
 
 | Skill          | Directory               | Description                                |
 | -------------- | ----------------------- | ------------------------------------------ |
-| `crush-config` | `builtin/crush-config/` | Crush configuration help                   |
-| `crush-hooks`  | `builtin/crush-hooks/`  | Authoring, configuring and debugging hooks |
+| `casspr-config` | `builtin/casspr-config/` | Crush configuration help                   |
+| `casspr-hooks`  | `builtin/casspr-hooks/`  | Authoring, configuring and debugging hooks |
 | `jq`           | `builtin/jq/`           | jq JSON processor usage guide              |

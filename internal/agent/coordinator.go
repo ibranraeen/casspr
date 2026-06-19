@@ -18,24 +18,24 @@ import (
 
 	"charm.land/catwalk/pkg/catwalk"
 	"charm.land/fantasy"
-	"github.com/charmbracelet/crush/internal/agent/hyper"
-	"github.com/charmbracelet/crush/internal/agent/notify"
-	"github.com/charmbracelet/crush/internal/agent/prompt"
-	"github.com/charmbracelet/crush/internal/agent/tools"
-	"github.com/charmbracelet/crush/internal/config"
-	"github.com/charmbracelet/crush/internal/discover"
-	"github.com/charmbracelet/crush/internal/event"
-	"github.com/charmbracelet/crush/internal/filetracker"
-	"github.com/charmbracelet/crush/internal/history"
-	"github.com/charmbracelet/crush/internal/hooks"
-	"github.com/charmbracelet/crush/internal/log"
-	"github.com/charmbracelet/crush/internal/lsp"
-	"github.com/charmbracelet/crush/internal/message"
-	"github.com/charmbracelet/crush/internal/oauth/copilot"
-	"github.com/charmbracelet/crush/internal/permission"
-	"github.com/charmbracelet/crush/internal/pubsub"
-	"github.com/charmbracelet/crush/internal/session"
-	"github.com/charmbracelet/crush/internal/skills"
+	"github.com/ibranraeen/casspr/internal/agent/hyper"
+	"github.com/ibranraeen/casspr/internal/agent/notify"
+	"github.com/ibranraeen/casspr/internal/agent/prompt"
+	"github.com/ibranraeen/casspr/internal/agent/tools"
+	"github.com/ibranraeen/casspr/internal/config"
+	"github.com/ibranraeen/casspr/internal/discover"
+	"github.com/ibranraeen/casspr/internal/event"
+	"github.com/ibranraeen/casspr/internal/filetracker"
+	"github.com/ibranraeen/casspr/internal/history"
+	"github.com/ibranraeen/casspr/internal/hooks"
+	"github.com/ibranraeen/casspr/internal/log"
+	"github.com/ibranraeen/casspr/internal/lsp"
+	"github.com/ibranraeen/casspr/internal/message"
+	"github.com/ibranraeen/casspr/internal/oauth/copilot"
+	"github.com/ibranraeen/casspr/internal/permission"
+	"github.com/ibranraeen/casspr/internal/pubsub"
+	"github.com/ibranraeen/casspr/internal/session"
+	"github.com/ibranraeen/casspr/internal/skills"
 	"golang.org/x/sync/errgroup"
 
 	"charm.land/fantasy/providers/anthropic"
@@ -615,7 +615,7 @@ func (c *coordinator) buildTools(ctx context.Context, agent config.Agent, isSubA
 		}
 	}
 
-	logFile := filepath.Join(c.cfg.Config().Options.DataDirectory, "logs", "crush.log")
+	logFile := filepath.Join(c.cfg.Config().Options.DataDirectory, "logs", "casspr.log")
 
 	// Build hook runner if PreToolUse hooks are configured.
 	var hookRunner *hooks.Runner

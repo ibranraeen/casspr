@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/charmbracelet/crush/internal/history"
-	"github.com/charmbracelet/crush/internal/permission"
-	"github.com/charmbracelet/crush/internal/pubsub"
+	"github.com/ibranraeen/casspr/internal/history"
+	"github.com/ibranraeen/casspr/internal/permission"
+	"github.com/ibranraeen/casspr/internal/pubsub"
 	"github.com/stretchr/testify/require"
 )
 

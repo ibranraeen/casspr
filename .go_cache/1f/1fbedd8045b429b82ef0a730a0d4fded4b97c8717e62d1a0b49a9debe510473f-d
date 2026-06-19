@@ -1,0 +1,12 @@
+./atomicwrite.go
+./catwalk.go
+./config.go
+./copilot.go
+./docker_mcp.go
+./hyper.go
+./init.go
+./load.go
+./provider.go
+./resolve.go
+./scope.go
+./store.go

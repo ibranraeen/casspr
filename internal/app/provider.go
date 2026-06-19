@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/crush/internal/config"
+	"github.com/ibranraeen/casspr/internal/config"
 	xstrings "github.com/charmbracelet/x/exp/strings"
 )
 

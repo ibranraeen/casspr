@@ -8,7 +8,7 @@ type Scope int
 const (
 	// ScopeGlobal targets the global data config (~/.local/share/crush/crush.json).
 	ScopeGlobal Scope = iota
-	// ScopeWorkspace targets the workspace config (.crush/crush.json).
+	// ScopeWorkspace targets the workspace config (.casspr/crush.json).
 	ScopeWorkspace
 )
 

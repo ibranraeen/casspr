@@ -5,13 +5,13 @@ import (
 	"errors"
 	"os"
 
-	"github.com/charmbracelet/crush/internal/agent"
-	"github.com/charmbracelet/crush/internal/agent/notify"
-	"github.com/charmbracelet/crush/internal/config"
-	"github.com/charmbracelet/crush/internal/message"
-	"github.com/charmbracelet/crush/internal/proto"
-	"github.com/charmbracelet/crush/internal/pubsub"
-	"github.com/charmbracelet/crush/internal/shell"
+	"github.com/ibranraeen/casspr/internal/agent"
+	"github.com/ibranraeen/casspr/internal/agent/notify"
+	"github.com/ibranraeen/casspr/internal/config"
+	"github.com/ibranraeen/casspr/internal/message"
+	"github.com/ibranraeen/casspr/internal/proto"
+	"github.com/ibranraeen/casspr/internal/pubsub"
+	"github.com/ibranraeen/casspr/internal/shell"
 )
 
 // SendMessage validates and accepts a prompt for the workspace's agent,

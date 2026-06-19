@@ -1,0 +1,8 @@
+./anthropic.go
+./bedrock.go
+./call_useragent.go
+./computer_use.go
+./error.go
+./google.go
+./provider_options.go
+./sanitize.go

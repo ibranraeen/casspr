@@ -8,12 +8,12 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/charmbracelet/crush/internal/client"
-	"github.com/charmbracelet/crush/internal/message"
-	"github.com/charmbracelet/crush/internal/permission"
-	"github.com/charmbracelet/crush/internal/proto"
-	"github.com/charmbracelet/crush/internal/pubsub"
-	"github.com/charmbracelet/crush/internal/skills"
+	"github.com/ibranraeen/casspr/internal/client"
+	"github.com/ibranraeen/casspr/internal/message"
+	"github.com/ibranraeen/casspr/internal/permission"
+	"github.com/ibranraeen/casspr/internal/proto"
+	"github.com/ibranraeen/casspr/internal/pubsub"
+	"github.com/ibranraeen/casspr/internal/skills"
 	"github.com/stretchr/testify/require"
 )
 

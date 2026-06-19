@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/charmbracelet/crush/internal/lock"
+	"github.com/ibranraeen/casspr/internal/lock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -162,7 +162,7 @@ func TestConnect_SkipLockEnvBypassesAcquisition(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(release)
 
-	t.Setenv("CRUSH_SKIP_DATADIR_LOCK", "1")
+	t.Setenv("CASSPR_SKIP_DATADIR_LOCK", "1")
 
 	conn, err := Connect(context.Background(), dataDir, WithDataDirLock(true))
 	require.NoError(t, err, "skip-lock env should bypass contention")

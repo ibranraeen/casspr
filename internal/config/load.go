@@ -20,13 +20,13 @@ import (
 	"time"
 
 	"charm.land/catwalk/pkg/catwalk"
-	"github.com/charmbracelet/crush/internal/agent/hyper"
-	"github.com/charmbracelet/crush/internal/csync"
-	"github.com/charmbracelet/crush/internal/discover"
-	"github.com/charmbracelet/crush/internal/env"
-	"github.com/charmbracelet/crush/internal/filepathext"
-	"github.com/charmbracelet/crush/internal/fsext"
-	"github.com/charmbracelet/crush/internal/home"
+	"github.com/ibranraeen/casspr/internal/agent/hyper"
+	"github.com/ibranraeen/casspr/internal/csync"
+	"github.com/ibranraeen/casspr/internal/discover"
+	"github.com/ibranraeen/casspr/internal/env"
+	"github.com/ibranraeen/casspr/internal/filepathext"
+	"github.com/ibranraeen/casspr/internal/fsext"
+	"github.com/ibranraeen/casspr/internal/home"
 	powernapConfig "github.com/charmbracelet/x/powernap/pkg/config"
 	"github.com/qjebbs/go-jsons"
 	"github.com/tidwall/gjson"
@@ -149,12 +149,12 @@ func mustMarshalConfig(cfg *Config) []byte {
 func PushPopCrushEnv() func() {
 	var found []string
 	for _, ev := range os.Environ() {
-		if strings.HasPrefix(ev, "CRUSH_") {
+		if strings.HasPrefix(ev, "CASSPR_") {
 			pair := strings.SplitN(ev, "=", 2)
 			if len(pair) != 2 {
 				continue
 			}
-			found = append(found, strings.TrimPrefix(pair[0], "CRUSH_"))
+			found = append(found, strings.TrimPrefix(pair[0], "CASSPR_"))
 		}
 	}
 	backups := make(map[string]string)
@@ -163,7 +163,7 @@ func PushPopCrushEnv() func() {
 	}
 
 	for _, ev := range found {
-		os.Setenv(ev, os.Getenv("CRUSH_"+ev))
+		os.Setenv(ev, os.Getenv("CASSPR_"+ev))
 	}
 
 	restore := func() {
@@ -543,11 +543,11 @@ func (c *Config) setDefaults(workingDir, dataDir string) {
 	// Project specific skills dirs.
 	c.Options.SkillsPaths = append(c.Options.SkillsPaths, ProjectSkillsDir(workingDir)...)
 
-	if str, ok := os.LookupEnv("CRUSH_DISABLE_PROVIDER_AUTO_UPDATE"); ok {
+	if str, ok := os.LookupEnv("CASSPR_DISABLE_PROVIDER_AUTO_UPDATE"); ok {
 		c.Options.DisableProviderAutoUpdate, _ = strconv.ParseBool(str)
 	}
 
-	if str, ok := os.LookupEnv("CRUSH_DISABLE_DEFAULT_PROVIDERS"); ok {
+	if str, ok := os.LookupEnv("CASSPR_DISABLE_DEFAULT_PROVIDERS"); ok {
 		c.Options.DisableDefaultProviders, _ = strconv.ParseBool(str)
 	}
 
@@ -975,7 +975,7 @@ func migrateDisableNotifications() {
 
 // GlobalConfig returns the global configuration file path for the application.
 func GlobalConfig() string {
-	if crushGlobal := os.Getenv("CRUSH_GLOBAL_CONFIG"); crushGlobal != "" {
+	if crushGlobal := os.Getenv("CASSPR_GLOBAL_CONFIG"); crushGlobal != "" {
 		return filepath.Join(crushGlobal, fmt.Sprintf("%s.json", appName))
 	}
 	return filepath.Join(home.Config(), appName, fmt.Sprintf("%s.json", appName))
@@ -984,7 +984,7 @@ func GlobalConfig() string {
 // GlobalCacheDir returns the path to the global cache directory for the
 // application.
 func GlobalCacheDir() string {
-	if crushCache := os.Getenv("CRUSH_CACHE_DIR"); crushCache != "" {
+	if crushCache := os.Getenv("CASSPR_CACHE_DIR"); crushCache != "" {
 		return crushCache
 	}
 	if xdgCacheHome := os.Getenv("XDG_CACHE_HOME"); xdgCacheHome != "" {
@@ -1008,7 +1008,7 @@ func ProjectConfigs(cwd string) []string {
 // GlobalConfigData returns the path to the main data directory for the application.
 // this config is used when the app overrides configurations instead of updating the global config.
 func GlobalConfigData() string {
-	if crushData := os.Getenv("CRUSH_GLOBAL_DATA"); crushData != "" {
+	if crushData := os.Getenv("CASSPR_GLOBAL_DATA"); crushData != "" {
 		return filepath.Join(crushData, fmt.Sprintf("%s.json", appName))
 	}
 	if xdgDataHome := os.Getenv("XDG_DATA_HOME"); xdgDataHome != "" {
@@ -1099,7 +1099,7 @@ func projectBoundary(dir string) string {
 // Skills in these directories are auto-discovered and their files can be read
 // without permission prompts.
 func GlobalSkillsDirs() []string {
-	if crushSkills := os.Getenv("CRUSH_SKILLS_DIR"); crushSkills != "" {
+	if crushSkills := os.Getenv("CASSPR_SKILLS_DIR"); crushSkills != "" {
 		return []string{crushSkills}
 	}
 
@@ -1133,7 +1133,7 @@ func GlobalSkillsDirs() []string {
 // git-root lookups to prevent drift when a new convention is added.
 var projectSkillSubdirs = []string{
 	".agents/skills",
-	".crush/skills",
+	".casspr/skills",
 	".claude/skills",
 	".cursor/skills",
 }

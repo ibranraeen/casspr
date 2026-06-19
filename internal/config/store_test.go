@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/charmbracelet/crush/internal/csync"
-	"github.com/charmbracelet/crush/internal/oauth"
+	"github.com/ibranraeen/casspr/internal/csync"
+	"github.com/ibranraeen/casspr/internal/oauth"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 )
@@ -31,12 +31,12 @@ func TestConfigStore_ConfigPath_WorkspaceReturnsPath(t *testing.T) {
 	t.Parallel()
 
 	store := &ConfigStore{
-		workspacePath: "/some/workspace/.crush/crush.json",
+		workspacePath: "/some/workspace/.casspr/crush.json",
 	}
 
 	path, err := store.configPath(ScopeWorkspace)
 	require.NoError(t, err)
-	require.Equal(t, "/some/workspace/.crush/crush.json", path)
+	require.Equal(t, "/some/workspace/.casspr/crush.json", path)
 }
 
 func TestConfigStore_ConfigPath_WorkspaceErrorsWhenEmpty(t *testing.T) {
@@ -140,7 +140,7 @@ func TestConfigStore_RuntimeOverrides_MutableViaPointer(t *testing.T) {
 
 func TestGlobalWorkspaceDir(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("CRUSH_GLOBAL_DATA", dir)
+	t.Setenv("CASSPR_GLOBAL_DATA", dir)
 
 	wsDir := GlobalWorkspaceDir()
 	globalData := GlobalConfigData()
@@ -325,8 +325,8 @@ func TestReloadFromDisk_UsesNewConfigValues(t *testing.T) {
 
 	// Isolate from the host's global config so only test-provided
 	// providers are visible.
-	t.Setenv("CRUSH_GLOBAL_CONFIG", dir)
-	t.Setenv("CRUSH_GLOBAL_DATA", dir)
+	t.Setenv("CASSPR_GLOBAL_CONFIG", dir)
+	t.Setenv("CASSPR_GLOBAL_DATA", dir)
 	resetProviderState()
 	t.Cleanup(resetProviderState)
 

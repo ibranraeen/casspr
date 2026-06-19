@@ -69,7 +69,7 @@ type connectOptions struct {
 // WithDataDirLock toggles acquisition of the per-data-directory lock
 // for this Connect call. The lock is off by default so local-mode
 // invocations do not regress today's behavior; the server's
-// workspace-bootstrap path opts in. CRUSH_SKIP_DATADIR_LOCK still
+// workspace-bootstrap path opts in. CASSPR_SKIP_DATADIR_LOCK still
 // bypasses acquisition even when this option is set.
 func WithDataDirLock(enable bool) ConnectOption {
 	return func(o *connectOptions) { o.lockDataDir = enable }
@@ -90,7 +90,7 @@ func Connect(ctx context.Context, dataDir string, opts ...ConnectOption) (*sql.D
 		opt(&cfg)
 	}
 
-	dbPath := filepath.Join(dataDir, "crush.db")
+	dbPath := filepath.Join(dataDir, "casspr.db")
 
 	// Resolve to an absolute path so that different relative paths to
 	// the same file share a single connection.
@@ -175,7 +175,7 @@ func Connect(ctx context.Context, dataDir string, opts ...ConnectOption) (*sql.D
 // data directory. When the count reaches zero the underlying connection
 // is closed and removed from the pool.
 func Release(dataDir string) error {
-	dbPath := filepath.Join(dataDir, "crush.db")
+	dbPath := filepath.Join(dataDir, "casspr.db")
 	absPath, err := filepath.Abs(dbPath)
 	if err != nil {
 		absPath = dbPath

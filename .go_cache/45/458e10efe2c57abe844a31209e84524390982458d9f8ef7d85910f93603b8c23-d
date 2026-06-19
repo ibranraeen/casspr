@@ -1,0 +1,15 @@
+./chat.go
+./filter.go
+./header.go
+./history.go
+./keys.go
+./landing.go
+./lsp.go
+./mcp.go
+./onboarding.go
+./pills.go
+./session.go
+./sidebar.go
+./skills.go
+./status.go
+./ui.go

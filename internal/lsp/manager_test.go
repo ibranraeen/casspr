@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/charmbracelet/crush/internal/csync"
+	"github.com/ibranraeen/casspr/internal/csync"
 	"github.com/stretchr/testify/require"
 )
 

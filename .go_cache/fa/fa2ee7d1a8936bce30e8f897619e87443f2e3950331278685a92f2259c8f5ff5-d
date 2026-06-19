@@ -1,0 +1,4 @@
+./app.go
+./lsp_events.go
+./provider.go
+./testing.go

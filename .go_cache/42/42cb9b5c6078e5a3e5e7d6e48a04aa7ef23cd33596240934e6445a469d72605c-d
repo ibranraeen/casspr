@@ -1,0 +1,5 @@
+./catalog.go
+./embed.go
+./manager.go
+./skills.go
+./tracker.go

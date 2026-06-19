@@ -1,0 +1,9 @@
+./background.go
+./coreutils.go
+./dispatch.go
+./doc.go
+./exec_unix.go
+./expand.go
+./jq.go
+./run.go
+./shell.go

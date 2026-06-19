@@ -1,0 +1,10 @@
+./charclass.go
+./code.go
+./escape.go
+./optimizations.go
+./parser.go
+./prefix.go
+./prefixanalyzer.go
+./replacerdata.go
+./tree.go
+./writer.go

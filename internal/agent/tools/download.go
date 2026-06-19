@@ -14,8 +14,8 @@ import (
 	"time"
 
 	"charm.land/fantasy"
-	"github.com/charmbracelet/crush/internal/filepathext"
-	"github.com/charmbracelet/crush/internal/permission"
+	"github.com/ibranraeen/casspr/internal/filepathext"
+	"github.com/ibranraeen/casspr/internal/permission"
 )
 
 type DownloadParams struct {
