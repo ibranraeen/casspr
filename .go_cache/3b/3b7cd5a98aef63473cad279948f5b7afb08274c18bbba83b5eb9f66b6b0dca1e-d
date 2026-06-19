@@ -1,6 +1,0 @@
-./bell.go
-./icon_darwin.go
-./native.go
-./noop.go
-./notification.go
-./osc.go

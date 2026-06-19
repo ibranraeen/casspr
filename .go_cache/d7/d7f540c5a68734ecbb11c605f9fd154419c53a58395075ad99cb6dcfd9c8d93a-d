@@ -1,9 +1,0 @@
-./api.go
-./doc.go
-./emitter.go
-./parser.go
-./reader.go
-./scanner.go
-./writer.go
-./yaml.go
-./yamlprivate.go

@@ -1,4 +1,0 @@
-./clipboard.go
-./clipboard_darwin.go
-./dib.go
-./format.go

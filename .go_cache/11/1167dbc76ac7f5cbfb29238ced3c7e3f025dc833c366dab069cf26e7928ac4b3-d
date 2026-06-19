@@ -1,6 +1,0 @@
-./discover.go
-./enricher.go
-./litellm.go
-./lmstudio.go
-./ollama.go
-./omlx.go

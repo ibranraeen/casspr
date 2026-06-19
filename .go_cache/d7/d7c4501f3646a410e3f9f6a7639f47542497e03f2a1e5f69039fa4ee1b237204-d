@@ -1,5 +1,0 @@
-./decode.go
-./encode.go
-./resolve.go
-./sorter.go
-./yaml.go
