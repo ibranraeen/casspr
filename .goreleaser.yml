@@ -6,17 +6,6 @@ project_name: casspr
 
 metadata:
   mod_timestamp: "{{ .CommitTimestamp }}"
-  license: "MIT"
-  homepage: "https://github.com/ibranraeen/casspr"
-  description: "A premium, celestial-inspired terminal AI assistant for developers, rebranded as Casspr."
-  full_description: "A premium, celestial-inspired terminal AI assistant for developers, rebranded as Casspr."
-  maintainers:
-    - "ibranraeen <ibranraeen@github.com>"
-
-nightly:
-  publish_release: true
-  keep_single_release: true
-  version_template: "{{ incminor .Version }}-nightly"
 
 snapshot:
   version_template: "0.0.0-{{ .Timestamp }}"
@@ -97,6 +86,10 @@ nfpms:
       - archlinux
       - termux.deb
     file_name_template: "{{ .ConventionalFileName }}"
+    homepage: "https://github.com/ibranraeen/casspr"
+    description: "A premium, celestial-inspired terminal AI assistant for developers, rebranded as Casspr."
+    maintainer: "ibranraeen <ibranraeen@github.com>"
+    license: "MIT"
     contents:
       - src: ./completions/casspr.bash
         dst: '{{ if eq .Format "termux.deb" }}/data/data/com.termux/files/usr{{ end }}/etc/bash_completion.d/casspr'
@@ -117,7 +110,7 @@ sboms:
 
 changelog:
   sort: asc
-  disable: "{{ .IsNightly }}"
+  disable: false
   use: github
   filters:
     exclude:
