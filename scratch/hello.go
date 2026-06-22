@@ -1,5 +1,5 @@
-package main
+package scratch
 import "fmt"
-func main() {
+func Hello() {
     fmt.Println("hello")
 }

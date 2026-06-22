@@ -1,2 +1,2 @@
-package main
-func main() {}
+package scratch
+func Placeholder() {}
