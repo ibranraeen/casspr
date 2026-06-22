@@ -1023,6 +1023,36 @@ func (c *controllerV1) handlePostWorkspacePermissionsGrant(w http.ResponseWriter
 	jsonEncode(w, proto.PermissionGrantResponse{Resolved: resolved})
 }
 
+// handlePostWorkspaceQuestionSubmit submits a response to a clarifying question.
+//
+//	@Summary		Submit question response
+//	@Tags			questions
+//	@Accept			json
+//	@Param			id		path	string				true	"Workspace ID"
+//	@Param			request	body	proto.QuestionResponse	true	"Question response"
+//	@Success		200	{object}	proto.QuestionSubmitResponse
+//	@Failure		400	{object}	proto.Error
+//	@Failure		404	{object}	proto.Error
+//	@Failure		500	{object}	proto.Error
+//	@Router			/workspaces/{id}/questions/submit [post]
+func (c *controllerV1) handlePostWorkspaceQuestionSubmit(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+
+	var req proto.QuestionResponse
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		c.server.logError(r, "Failed to decode request", "error", err)
+		jsonError(w, http.StatusBadRequest, "failed to decode request")
+		return
+	}
+
+	resolved, err := c.backend.SubmitQuestion(id, req)
+	if err != nil {
+		c.handleError(w, r, err)
+		return
+	}
+	jsonEncode(w, proto.QuestionSubmitResponse{Resolved: resolved})
+}
+
 // handlePostWorkspacePermissionsSkip sets whether to skip permission prompts.
 //
 //	@Summary		Set skip permissions

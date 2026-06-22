@@ -34,6 +34,7 @@ import (
 	"github.com/ibranraeen/casspr/internal/oauth/copilot"
 	"github.com/ibranraeen/casspr/internal/permission"
 	"github.com/ibranraeen/casspr/internal/pubsub"
+	"github.com/ibranraeen/casspr/internal/question"
 	"github.com/ibranraeen/casspr/internal/session"
 	"github.com/ibranraeen/casspr/internal/skills"
 	"golang.org/x/sync/errgroup"
@@ -81,6 +82,7 @@ var opencodeMessagesModels = map[string]bool{
 type Coordinator interface {
 	// INFO: (kujtim) this is not used yet we will use this when we have multiple agents
 	// SetMainAgent(string)
+	SetActiveAgent(name string) error
 	Run(ctx context.Context, sessionID, prompt string, attachments ...message.Attachment) (*fantasy.AgentResult, error)
 	// RunAccepted runs a call that was already accepted via
 	// BeginAccepted on the fire-and-forget dispatch path. The handle is
@@ -109,6 +111,7 @@ type coordinator struct {
 	sessions    session.Service
 	messages    message.Service
 	permissions permission.Service
+	questions   question.Service
 	history     history.Service
 	filetracker filetracker.Service
 	lspManager  *lsp.Manager
@@ -126,12 +129,44 @@ type coordinator struct {
 	readyWg errgroup.Group
 }
 
+func (c *coordinator) promptForAgent(name string) (*prompt.Prompt, error) {
+	switch name {
+	case config.AgentCoder:
+		return coderPrompt(prompt.WithWorkingDir(c.cfg.WorkingDir()))
+	case config.AgentTask:
+		return taskPrompt(prompt.WithWorkingDir(c.cfg.WorkingDir()))
+	case config.AgentAsk:
+		return askPrompt(prompt.WithWorkingDir(c.cfg.WorkingDir()))
+	case config.AgentDebug:
+		return debugPrompt(prompt.WithWorkingDir(c.cfg.WorkingDir()))
+	case config.AgentOrchestrator:
+		return orchestratorPrompt(prompt.WithWorkingDir(c.cfg.WorkingDir()))
+	case config.AgentPlan:
+		return planPrompt(prompt.WithWorkingDir(c.cfg.WorkingDir()))
+	default:
+		return coderPrompt(prompt.WithWorkingDir(c.cfg.WorkingDir()))
+	}
+}
+
+func (c *coordinator) SetActiveAgent(name string) error {
+	if name == "code" {
+		name = config.AgentCoder
+	}
+	agent, ok := c.agents[name]
+	if !ok {
+		return fmt.Errorf("agent %q not found", name)
+	}
+	c.currentAgent = agent
+	return nil
+}
+
 func NewCoordinator(
 	ctx context.Context,
 	cfg *config.ConfigStore,
 	sessions session.Service,
 	messages message.Service,
 	permissions permission.Service,
+	questions question.Service,
 	history history.Service,
 	filetracker filetracker.Service,
 	lspManager *lsp.Manager,
@@ -157,6 +192,7 @@ func NewCoordinator(
 		sessions:     sessions,
 		messages:     messages,
 		permissions:  permissions,
+		questions:    questions,
 		history:      history,
 		filetracker:  filetracker,
 		lspManager:   lspManager,
@@ -168,23 +204,30 @@ func NewCoordinator(
 		skillTracker: skillTracker,
 	}
 
-	agentCfg, ok := cfg.Config().Agents[config.AgentCoder]
+	// Build all configured agents
+	for name, agentCfg := range cfg.Config().Agents {
+		// Skip task agent because it is run/built on-demand as a sub-agent
+		if name == config.AgentTask {
+			continue
+		}
+		p, err := c.promptForAgent(name)
+		if err != nil {
+			return nil, err
+		}
+		agent, err := c.buildAgent(ctx, p, agentCfg, false)
+		if err != nil {
+			return nil, err
+		}
+		c.agents[name] = agent
+	}
+
+	// Set default active agent to coder
+	coderAgent, ok := c.agents[config.AgentCoder]
 	if !ok {
 		return nil, errCoderAgentNotConfigured
 	}
+	c.currentAgent = coderAgent
 
-	// TODO: make this dynamic when we support multiple agents
-	prompt, err := coderPrompt(prompt.WithWorkingDir(c.cfg.WorkingDir()))
-	if err != nil {
-		return nil, err
-	}
-
-	agent, err := c.buildAgent(ctx, prompt, agentCfg, false)
-	if err != nil {
-		return nil, err
-	}
-	c.currentAgent = agent
-	c.agents[config.AgentCoder] = agent
 	return c, nil
 }
 
@@ -563,6 +606,7 @@ func (c *coordinator) buildAgent(ctx context.Context, prompt *prompt.Prompt, age
 		IsYolo:               c.permissions.SkipRequests(),
 		Sessions:             c.sessions,
 		Messages:             c.messages,
+		Questions:            c.questions,
 		Tools:                nil,
 		Notify:               c.notify,
 		RunComplete:          c.runComplete,
@@ -641,6 +685,7 @@ func (c *coordinator) buildTools(ctx context.Context, agent config.Agent, isSubA
 		tools.NewTodosTool(c.sessions),
 		tools.NewViewTool(c.lspManager, c.permissions, c.filetracker, c.skillTracker, c.cfg.WorkingDir(), c.cfg.Config().Options.SkillsPaths...),
 		tools.NewWriteTool(c.lspManager, c.permissions, c.history, c.filetracker, c.cfg.WorkingDir()),
+		tools.NewAskQuestionTool(c.questions),
 	)
 
 	// Add LSP tools if user has configured LSPs or auto_lsp is enabled (nil or true).

@@ -4,7 +4,6 @@ package logo
 import (
 	"fmt"
 	"image/color"
-	"math/rand/v2"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -40,7 +39,7 @@ type Opts struct {
 // The compact argument determines whether it renders compact for the sidebar
 // or wider for the main pane.
 func Render(base lipgloss.Style, version string, compact bool, o Opts) string {
-	charm := " CASSPR™"
+	charm := ""
 
 	fg := func(c color.Color, s string) string {
 		return lipgloss.NewStyle().Foreground(c).Render(s)
@@ -71,13 +70,6 @@ func Render(base lipgloss.Style, version string, compact bool, o Opts) string {
 	}
 
 	stretchIndex := -1 // -1 means no stretching.
-	if !compact && !o.Unstable {
-		// Always stretch the same letterform, which is picked once at random.
-		stretchIndex = cachedRandN(len(cassprLetterforms))
-	} else if !compact && o.Unstable {
-		// Stretch a random letterform on every render.
-		stretchIndex = rand.IntN(len(cassprLetterforms))
-	}
 	casspr := renderWord(spacing, stretchIndex, cassprLetterforms...)
 	if o.Hyper && compact {
 		casspr = renderWord(spacing, stretchIndex, hyperLetterforms...) + "\n" + casspr

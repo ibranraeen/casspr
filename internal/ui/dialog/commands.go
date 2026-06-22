@@ -71,6 +71,8 @@ type Commands struct {
 	customCommands []commands.CustomCommand
 	mcpPrompts     []commands.MCPPrompt
 
+	hideResources bool
+
 	dockerMCPAvailable     *bool
 	dockerMCPCheckInFlight bool
 }
@@ -78,7 +80,7 @@ type Commands struct {
 var _ Dialog = (*Commands)(nil)
 
 // NewCommands creates a new commands dialog.
-func NewCommands(com *common.Common, sessionID string, hasSession, hasTodos, hasQueue bool, customCommands []commands.CustomCommand, mcpPrompts []commands.MCPPrompt) (*Commands, error) {
+func NewCommands(com *common.Common, sessionID string, hasSession, hasTodos, hasQueue bool, hideResources bool, customCommands []commands.CustomCommand, mcpPrompts []commands.MCPPrompt) (*Commands, error) {
 	c := &Commands{
 		com:            com,
 		selected:       SystemCommands,
@@ -86,6 +88,7 @@ func NewCommands(com *common.Common, sessionID string, hasSession, hasTodos, has
 		hasSession:     hasSession,
 		hasTodos:       hasTodos,
 		hasQueue:       hasQueue,
+		hideResources:  hideResources,
 		customCommands: customCommands,
 		mcpPrompts:     mcpPrompts,
 	}
@@ -488,6 +491,9 @@ func (c *Commands) defaultCommands() []*CommandItem {
 		commands = append(commands, NewCommandItem(c.com.Styles, "open_external_editor", "Open External Editor", "ctrl+o", ActionExternalEditor{}))
 	}
 
+	// Add Mermaid live editor command.
+	commands = append(commands, NewCommandItem(c.com.Styles, "open_mermaid_editor", "Open Mermaid Editor", "ctrl+m", ActionOpenMermaidEditor{}))
+
 	// Add Docker MCP command if available and not already enabled.
 	if !cfg.IsDockerMCPEnabled() && c.dockerMCPAvailable != nil && *c.dockerMCPAvailable {
 		commands = append(commands, NewCommandItem(c.com.Styles, "enable_docker_mcp", "Enable Docker MCP Catalog", "", ActionEnableDockerMCP{}))
@@ -515,6 +521,10 @@ func (c *Commands) defaultCommands() []*CommandItem {
 	notificationLabel := "Notification Style"
 	commands = append(commands, NewCommandItem(c.com.Styles, "select_notifications", notificationLabel, "", ActionOpenDialog{DialogID: NotificationsID}))
 
+	// Add a command for selecting theme style via picker dialog.
+	themeLabel := "Select Theme"
+	commands = append(commands, NewCommandItem(c.com.Styles, "select_theme", themeLabel, "", ActionOpenDialog{DialogID: ThemesID}))
+
 	commands = append(
 		commands,
 		NewCommandItem(c.com.Styles, "toggle_yolo", "Toggle Yolo Mode", "ctrl+y", ActionToggleYoloMode{}),
@@ -528,6 +538,24 @@ func (c *Commands) defaultCommands() []*CommandItem {
 		transparentLabel = "Enable Background Color"
 	}
 	commands = append(commands, NewCommandItem(c.com.Styles, "toggle_transparent", transparentLabel, "", ActionToggleTransparentBackground{}))
+
+	// Add background color options.
+	commands = append(
+		commands,
+		NewCommandItem(c.com.Styles, "bg_deep_space", "Set Background: Deep Space Navy (#0b0f19)", "", ActionSetCardBackground{ColorHex: "#0b0f19"}),
+		NewCommandItem(c.com.Styles, "bg_midnight_navy", "Set Background: Midnight Navy (#070a12)", "", ActionSetCardBackground{ColorHex: "#070a12"}),
+		NewCommandItem(c.com.Styles, "bg_tailwind_slate", "Set Background: Tailwind Slate (#0f172a)", "", ActionSetCardBackground{ColorHex: "#0f172a"}),
+		NewCommandItem(c.com.Styles, "bg_tokyo_night", "Set Background: Tokyo Night Storm (#16161e)", "", ActionSetCardBackground{ColorHex: "#16161e"}),
+		NewCommandItem(c.com.Styles, "bg_one_dark", "Set Background: One Dark Slate (#1e222a)", "", ActionSetCardBackground{ColorHex: "#1e222a"}),
+		NewCommandItem(c.com.Styles, "bg_default_gray", "Set Background: Default Gray (#1c1c1e)", "", ActionSetCardBackground{ColorHex: "#1c1c1e"}),
+	)
+
+	// Add resources visibility toggle.
+	resourcesLabel := "Show LSPs, MCPs, Skills"
+	if !c.hideResources {
+		resourcesLabel = "Hide LSPs, MCPs, Skills"
+	}
+	commands = append(commands, NewCommandItem(c.com.Styles, "toggle_resources", resourcesLabel, "", ActionToggleResources{}))
 
 	commands = append(
 		commands,

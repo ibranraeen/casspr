@@ -72,15 +72,45 @@ func getDynamicHeightLimits(availableHeight, fileCount, lspCount, mcpCount, skil
 	)
 
 	if availableHeight < minAvailableHeightLimit {
-		return minItemsPerSection, minItemsPerSection, minItemsPerSection, minItemsPerSection
+		maxFiles = minItemsPerSection
+		if lspCount > 0 {
+			maxLSPs = minItemsPerSection
+		}
+		if mcpCount > 0 {
+			maxMCPs = minItemsPerSection
+		}
+		if skillCount > 0 {
+			maxSkills = minItemsPerSection
+		}
+		return maxFiles, maxLSPs, maxMCPs, maxSkills
 	}
 
 	maxFiles = minItemsPerSection
-	maxLSPs = minItemsPerSection
-	maxMCPs = minItemsPerSection
-	maxSkills = minItemsPerSection
+	maxLSPs = 0
+	if lspCount > 0 {
+		maxLSPs = minItemsPerSection
+	}
+	maxMCPs = 0
+	if mcpCount > 0 {
+		maxMCPs = minItemsPerSection
+	}
+	maxSkills = 0
+	if skillCount > 0 {
+		maxSkills = minItemsPerSection
+	}
 
-	remainingHeight := max(0, availableHeight-(minItemsPerSection*4))
+	activeSectionsCount := 1 // Files is always active.
+	if lspCount > 0 {
+		activeSectionsCount++
+	}
+	if mcpCount > 0 {
+		activeSectionsCount++
+	}
+	if skillCount > 0 {
+		activeSectionsCount++
+	}
+
+	remainingHeight := max(0, availableHeight-(minItemsPerSection*activeSectionsCount))
 
 	sectionValues := []*int{&maxFiles, &maxLSPs, &maxMCPs, &maxSkills}
 	sectionCaps := []int{defaultMaxFilesShown, defaultMaxLSPsShown, defaultMaxMCPsShown, defaultMaxSkillsShown}
@@ -91,6 +121,10 @@ func getDynamicHeightLimits(availableHeight, fileCount, lspCount, mcpCount, skil
 		for i, section := range sectionValues {
 			if remainingHeight == 0 {
 				break
+			}
+			// Don't allocate to inactive sections.
+			if *section == 0 && sectionValues[i] != &maxFiles {
+				continue
 			}
 			if sectionNeeds[i] == 0 || *section >= sectionCaps[i] {
 				continue
@@ -110,6 +144,10 @@ func getDynamicHeightLimits(availableHeight, fileCount, lspCount, mcpCount, skil
 		for i, section := range sectionValues {
 			if remainingHeight == 0 {
 				break
+			}
+			// Don't allocate to inactive sections.
+			if *section == 0 && sectionValues[i] != &maxFiles {
+				continue
 			}
 			if *section >= sectionCaps[i] {
 				continue
@@ -187,12 +225,48 @@ func (m *UI) drawSidebar(scr uv.Screen, area uv.Rectangle) {
 
 	skillsCount := len(m.skillStatusItems())
 
+	if m.hideResources {
+		lspsCount = 0
+		mcpsCount = 0
+		skillsCount = 0
+	} else {
+		if lspsCount == 0 {
+			lspsCount = 1
+		}
+		if mcpsCount == 0 {
+			mcpsCount = 1
+		}
+		if skillsCount == 0 {
+			skillsCount = 1
+		}
+	}
+
 	maxFiles, maxLSPs, maxMCPs, maxSkills := getDynamicHeightLimits(remainingHeight, filesCount, lspsCount, mcpsCount, skillsCount)
 
 	lspSection := m.lspInfo(width, maxLSPs, true)
 	mcpSection := m.mcpInfo(width, maxMCPs, true)
 	skillsSection := m.skillsInfo(width, maxSkills, true)
 	filesSection := m.filesInfo(m.com.Workspace.WorkingDir(), width, maxFiles, true)
+
+	var activeSections []string
+	if filesSection != "" {
+		activeSections = append(activeSections, filesSection)
+	}
+	if lspSection != "" {
+		activeSections = append(activeSections, lspSection)
+	}
+	if mcpSection != "" {
+		activeSections = append(activeSections, mcpSection)
+	}
+	if skillsSection != "" {
+		activeSections = append(activeSections, skillsSection)
+	}
+
+	var joinedParts []string
+	joinedParts = append(joinedParts, sidebarHeader)
+	for _, s := range activeSections {
+		joinedParts = append(joinedParts, "", s)
+	}
 
 	uv.NewStyledString(
 		lipgloss.NewStyle().
@@ -201,14 +275,7 @@ func (m *UI) drawSidebar(scr uv.Screen, area uv.Rectangle) {
 			Render(
 				lipgloss.JoinVertical(
 					lipgloss.Left,
-					sidebarHeader,
-					filesSection,
-					"",
-					lspSection,
-					"",
-					mcpSection,
-					"",
-					skillsSection,
+					joinedParts...,
 				),
 			),
 	).Draw(scr, area)

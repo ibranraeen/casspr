@@ -15,6 +15,7 @@ import (
 	"github.com/ibranraeen/casspr/internal/permission"
 	"github.com/ibranraeen/casspr/internal/proto"
 	"github.com/ibranraeen/casspr/internal/pubsub"
+	"github.com/ibranraeen/casspr/internal/question"
 	"github.com/ibranraeen/casspr/internal/session"
 	"github.com/ibranraeen/casspr/internal/skills"
 )
@@ -68,6 +69,35 @@ func wrapEvent(ev any) *pubsub.Payload {
 				ToolCallID: e.Payload.ToolCallID,
 				Granted:    e.Payload.Granted,
 				Denied:     e.Payload.Denied,
+			},
+		})
+	case pubsub.Event[question.QuestionRequest]:
+		return envelope(pubsub.PayloadTypeQuestionRequest, pubsub.Event[proto.QuestionRequest]{
+			Type: e.Type,
+			Payload: proto.QuestionRequest{
+				ID:            e.Payload.ID,
+				SessionID:     e.Payload.SessionID,
+				ToolCallID:    e.Payload.ToolCallID,
+				Question:      e.Payload.Question,
+				Options:       e.Payload.Options,
+				IsMultiSelect: e.Payload.IsMultiSelect,
+				AllowCustom:   e.Payload.AllowCustom,
+			},
+		})
+	case pubsub.Event[question.QuestionNotification]:
+		var resp *proto.QuestionResponse
+		if e.Payload.Response != nil {
+			resp = &proto.QuestionResponse{
+				QuestionID:      e.Payload.Response.QuestionID,
+				SelectedOptions: e.Payload.Response.SelectedOptions,
+				CustomAnswer:    e.Payload.Response.CustomAnswer,
+			}
+		}
+		return envelope(pubsub.PayloadTypeQuestionNotification, pubsub.Event[proto.QuestionNotification]{
+			Type: e.Type,
+			Payload: proto.QuestionNotification{
+				ToolCallID: e.Payload.ToolCallID,
+				Response:   resp,
 			},
 		})
 	case pubsub.Event[message.Message]:

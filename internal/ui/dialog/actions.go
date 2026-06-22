@@ -13,6 +13,7 @@ import (
 	"github.com/ibranraeen/casspr/internal/message"
 	"github.com/ibranraeen/casspr/internal/oauth"
 	"github.com/ibranraeen/casspr/internal/permission"
+	"github.com/ibranraeen/casspr/internal/question"
 	"github.com/ibranraeen/casspr/internal/session"
 	"github.com/ibranraeen/casspr/internal/skills"
 	"github.com/ibranraeen/casspr/internal/ui/common"
@@ -49,14 +50,22 @@ type (
 	ActionToggleHelp              struct{}
 	ActionToggleCompactMode       struct{}
 	ActionToggleThinking          struct{}
+	ActionToggleResources         struct{}
 	ActionTogglePills             struct{}
 	ActionExternalEditor          struct{}
+	ActionOpenMermaidEditor       struct{}
 	ActionToggleYoloMode          struct{}
 	ActionToggleNotifications     struct{}
 	ActionSelectNotificationStyle struct {
 		Style string
 	}
 	ActionToggleTransparentBackground struct{}
+	ActionSelectTheme                 struct {
+		Theme string
+	}
+	ActionSetCardBackground struct {
+		ColorHex string
+	}
 	ActionInitializeProject           struct{}
 	ActionSummarize                   struct {
 		SessionID string
@@ -69,6 +78,10 @@ type (
 	ActionPermissionResponse struct {
 		Permission permission.PermissionRequest
 		Action     PermissionAction
+	}
+	ActionQuestionResponse struct {
+		Request  question.QuestionRequest
+		Response question.QuestionResponse
 	}
 	// ActionRunCustomCommand is a message to run a custom command.
 	ActionRunCustomCommand struct {

@@ -23,6 +23,10 @@ type LSPInfo struct {
 // lspInfo renders the LSP status section showing active LSP clients and their
 // diagnostic counts.
 func (m *UI) lspInfo(width, maxItems int, isSection bool) string {
+	if m.hideResources {
+		return ""
+	}
+
 	t := m.com.Styles
 
 	states := slices.SortedFunc(maps.Values(m.lspStates), func(a, b workspace.LSPClientInfo) int {

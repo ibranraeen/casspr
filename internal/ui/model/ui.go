@@ -31,15 +31,18 @@ import (
 	agenttools "github.com/ibranraeen/casspr/internal/agent/tools"
 	"github.com/ibranraeen/casspr/internal/agent/tools/mcp"
 	"github.com/ibranraeen/casspr/internal/app"
+	"github.com/pkg/browser"
 	"github.com/ibranraeen/casspr/internal/clipboard"
 	"github.com/ibranraeen/casspr/internal/commands"
 	"github.com/ibranraeen/casspr/internal/config"
 	"github.com/ibranraeen/casspr/internal/fsext"
 	"github.com/ibranraeen/casspr/internal/history"
 	"github.com/ibranraeen/casspr/internal/home"
+	"github.com/ibranraeen/casspr/internal/mermaid"
 	"github.com/ibranraeen/casspr/internal/message"
 	"github.com/ibranraeen/casspr/internal/permission"
 	"github.com/ibranraeen/casspr/internal/pubsub"
+	"github.com/ibranraeen/casspr/internal/question"
 	"github.com/ibranraeen/casspr/internal/session"
 	"github.com/ibranraeen/casspr/internal/skills"
 	"github.com/ibranraeen/casspr/internal/stringext"
@@ -110,6 +113,10 @@ const (
 
 type openEditorMsg struct {
 	Text string
+}
+
+type transparentToggledMsg struct {
+	newValue bool
 }
 
 type shellResultMsg struct {
@@ -186,6 +193,7 @@ type UI struct {
 	layout uiLayout
 
 	isTransparent bool
+	cardBgColor   string
 
 	focus uiFocusState
 	state uiState
@@ -246,6 +254,9 @@ type UI struct {
 	// skills
 	skillStates []*skills.SkillState
 
+	// mermaid
+	mermaidServer *mermaid.Server
+
 	// sidebarLogo keeps a cached version of the sidebar sidebarLogo.
 	sidebarLogo string
 
@@ -265,6 +276,9 @@ type UI struct {
 
 	// detailsOpen tracks whether the details panel is open (in compact mode)
 	detailsOpen bool
+
+	// hideResources tracks whether LSPs, MCPs, and Skills are hidden.
+	hideResources bool
 
 	// pills state
 	pillsExpanded      bool
@@ -289,6 +303,8 @@ type UI struct {
 		index    int
 		draft    string
 	}
+
+	activeAgentMode string
 }
 
 // New creates a new instance of the [UI] model.
@@ -355,14 +371,19 @@ func New(com *common.Common, initialSessionID string, continueLast bool) *UI {
 		initialSessionID:    initialSessionID,
 		continueLastSession: continueLast,
 		skillStates:         skills.GetLatestStates(),
+		activeAgentMode:     "coder",
+		hideResources:       true,
+		cardBgColor:         "#1c1c1e",
 	}
+
+	_ = com.Workspace.SetActiveAgent("coder")
 
 	status := NewStatus(com, ui)
 
 	ui.setEditorPrompt(com.Workspace.PermissionSkipRequests())
 	ui.randomizePlaceholders()
-	ui.textarea.Placeholder = ui.readyPlaceholder
 	ui.status = status
+	ui.updatePlaceholder()
 
 	// Initialize compact mode from config
 	ui.forceCompactMode = com.Config().Options.TUI.CompactMode
@@ -388,6 +409,8 @@ func New(com *common.Common, initialSessionID string, continueLast bool) *UI {
 	// enable transparent mode
 	ui.isTransparent = opts.TUI.Transparent != nil && *opts.TUI.Transparent
 
+	ui.refreshStyles()
+
 	return ui
 }
 
@@ -399,6 +422,8 @@ func (m *UI) Init() tea.Cmd {
 			cmds = append(cmds, cmd)
 		}
 	}
+	// Start textarea cursor blinking.
+	cmds = append(cmds, m.textarea.Focus())
 	// load the user commands async
 	cmds = append(cmds, m.loadCustomCommands())
 	// load prompt history async
@@ -525,6 +550,52 @@ func (m *UI) setState(state uiState, focus uiFocusState) {
 	m.focus = focus
 	// Changing the state may change layout, so update it.
 	m.updateLayoutAndSize()
+}
+
+// cycleAgentMode cycles the active agent mode between coder, ask, debug, orchestrator, plan.
+func (m *UI) cycleAgentMode() {
+	modes := []string{"coder", "ask", "debug", "orchestrator", "plan"}
+	idx := -1
+	for i, mode := range modes {
+		if m.activeAgentMode == mode {
+			idx = i
+			break
+		}
+	}
+	nextIdx := (idx + 1) % len(modes)
+	m.activeAgentMode = modes[nextIdx]
+	_ = m.com.Workspace.SetActiveAgent(m.activeAgentMode)
+	m.updatePlaceholder()
+}
+
+// updatePlaceholder sets the textarea placeholder dynamically based on the current agent mode.
+func (m *UI) updatePlaceholder() {
+	if m.bangMode {
+		m.textarea.Placeholder = "Run a shell command..."
+		return
+	}
+	if m.isAgentBusy() {
+		m.textarea.Placeholder = m.workingPlaceholder
+		return
+	}
+	if m.com.Workspace.PermissionSkipRequests() {
+		m.textarea.Placeholder = "Yolo mode!"
+		return
+	}
+	switch m.activeAgentMode {
+	case "coder":
+		m.textarea.Placeholder = "Type your message... (type / for commands)"
+	case "ask":
+		m.textarea.Placeholder = "Ask anything... \"What is the tech stack of this project?\""
+	case "debug":
+		m.textarea.Placeholder = "Ask to debug... \"Why is this test failing?\""
+	case "orchestrator":
+		m.textarea.Placeholder = "Enter orchestrator task... \"Refactor the user routes\""
+	case "plan":
+		m.textarea.Placeholder = "Ask for a plan... \"Design the DB schema\""
+	default:
+		m.textarea.Placeholder = m.readyPlaceholder
+	}
 }
 
 // loadCustomCommands loads the custom commands asynchronously.
@@ -749,6 +820,24 @@ func (m *UI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case pubsub.Event[permission.PermissionNotification]:
 		m.handlePermissionNotification(msg.Payload)
+	case pubsub.Event[question.QuestionRequest]:
+		if cmd := m.openQuestionDialog(msg.Payload); cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+		if cmd := m.sendNotification(notification.Notification{
+			Title:   "Crush is waiting...",
+			Message: msg.Payload.Question,
+		}); cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+	case pubsub.Event[question.QuestionNotification]:
+		if msg.Payload.Response != nil {
+			if d := m.dialog.Dialog(dialog.AskQuestionID); d != nil {
+				if qDlg, ok := d.(*dialog.AskQuestion); ok && qDlg.ToolCallID() == msg.Payload.ToolCallID {
+					m.dialog.CloseDialog(dialog.AskQuestionID)
+				}
+			}
+		}
 	case cancelTimerExpiredMsg:
 		m.isCanceling = false
 	case tea.TerminalVersionMsg:
@@ -952,6 +1041,14 @@ func (m *UI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case creditsUpdatedMsg:
 		m.hyperCredits = &msg.credits
+	case transparentToggledMsg:
+		m.isTransparent = msg.newValue
+		m.refreshStyles()
+		status := "disabled"
+		if msg.newValue {
+			status = "enabled"
+		}
+		cmds = append(cmds, util.CmdHandler(util.NewInfoMsg("Transparent background "+status)))
 	case util.InfoMsg:
 		if msg.Type == util.InfoTypeError {
 			slog.Error("Error reported", "error", msg.Msg)
@@ -991,6 +1088,12 @@ func (m *UI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if cmd := m.handleDialogMsg(msg); cmd != nil {
 				cmds = append(cmds, cmd)
 			}
+		} else if m.focus == uiFocusEditor {
+			var cmd tea.Cmd
+			m.textarea, cmd = m.textarea.Update(msg)
+			if cmd != nil {
+				cmds = append(cmds, cmd)
+			}
 		}
 	}
 
@@ -998,17 +1101,7 @@ func (m *UI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch m.focus {
 	case uiFocusMain:
 	case uiFocusEditor:
-		// Textarea placeholder logic
-		if m.bangMode {
-			m.textarea.Placeholder = "Run a shell command"
-		} else if m.isAgentBusy() {
-			m.textarea.Placeholder = m.workingPlaceholder
-		} else {
-			m.textarea.Placeholder = m.readyPlaceholder
-		}
-		if !m.bangMode && m.com.Workspace.PermissionSkipRequests() {
-			m.textarea.Placeholder = "Yolo mode!"
-		}
+		m.updatePlaceholder()
 	}
 
 	// at this point this can only handle [message.Attachment] message, and we
@@ -1210,16 +1303,22 @@ func (m *UI) appendSessionMessage(msg message.Message) tea.Cmd {
 }
 
 func (m *UI) handleClickFocus(msg tea.MouseClickMsg) (cmd tea.Cmd) {
-	switch {
-	case m.state != uiChat:
+	if m.state != uiChat && m.state != uiLanding {
 		return nil
-	case image.Pt(msg.X, msg.Y).In(m.layout.sidebar):
+	}
+	if image.Pt(msg.X, msg.Y).In(m.layout.sidebar) {
 		return nil
-	case m.focus != uiFocusEditor && image.Pt(msg.X, msg.Y).In(m.layout.editor):
-		m.focus = uiFocusEditor
-		cmd = m.textarea.Focus()
-		m.chat.Blur()
-	case m.focus != uiFocusMain && image.Pt(msg.X, msg.Y).In(m.layout.main):
+	}
+	if image.Pt(msg.X, msg.Y).In(m.layout.editor) {
+		if msg.Y >= m.layout.editor.Max.Y-3 {
+			m.cycleAgentMode()
+		}
+		if m.focus != uiFocusEditor {
+			m.focus = uiFocusEditor
+			cmd = m.textarea.Focus()
+			m.chat.Blur()
+		}
+	} else if m.state == uiChat && m.focus != uiFocusMain && image.Pt(msg.X, msg.Y).In(m.layout.main) {
 		m.focus = uiFocusMain
 		m.textarea.Blur()
 		m.chat.Focus()
@@ -1458,6 +1557,24 @@ func (m *UI) handleDialogMsg(msg tea.Msg) tea.Cmd {
 			m.notifyBackend = selectNotificationBackend(m.caps, cfg)
 		}
 		m.dialog.CloseDialog(dialog.NotificationsID)
+	case dialog.ActionSelectTheme:
+		cfg := m.com.Config()
+		if cfg != nil {
+			if cfg.Options == nil {
+				cfg.Options = &config.Options{}
+			}
+			if cfg.Options.TUI == nil {
+				cfg.Options.TUI = &config.TUIOptions{}
+			}
+			cfg.Options.TUI.Theme = msg.Theme
+			if err := m.com.Workspace.SetConfigField(config.ScopeGlobal, "options.tui.theme", msg.Theme); err != nil {
+				cmds = append(cmds, util.ReportError(err))
+			} else {
+				cmds = append(cmds, util.CmdHandler(util.NewInfoMsg("Theme set to: "+msg.Theme)))
+			}
+			m.applyTheme(styles.ThemeForConfig(msg.Theme, cfg.Models[config.SelectedModelTypeLarge].Provider))
+		}
+		m.dialog.CloseDialog(dialog.ThemesID)
 	case dialog.ActionNewSession:
 		if m.isAgentBusy() {
 			cmds = append(cmds, util.ReportWarn("Agent is busy, please wait before starting a new session..."))
@@ -1489,6 +1606,13 @@ func (m *UI) handleDialogMsg(msg tea.Msg) tea.Cmd {
 			break
 		}
 		cmds = append(cmds, m.openEditor(m.textarea.Value()))
+		m.dialog.CloseDialog(dialog.CommandsID)
+	case dialog.ActionOpenMermaidEditor:
+		if m.isAgentBusy() {
+			cmds = append(cmds, util.ReportWarn("Agent is working, please wait..."))
+			break
+		}
+		cmds = append(cmds, m.openMermaidEditor())
 		m.dialog.CloseDialog(dialog.CommandsID)
 	case dialog.ActionToggleCompactMode:
 		cmds = append(cmds, m.toggleCompactMode())
@@ -1535,16 +1659,21 @@ func (m *UI) handleDialogMsg(msg tea.Msg) tea.Cmd {
 			if err := m.com.Workspace.SetConfigField(config.ScopeGlobal, "options.tui.transparent", newValue); err != nil {
 				return util.ReportError(err)()
 			}
-			m.isTransparent = newValue
-
-			status := "disabled"
-			if newValue {
-				status = "enabled"
-			}
-			return util.NewInfoMsg("Transparent background " + status)
+			return transparentToggledMsg{newValue: newValue}
 		})
 		m.dialog.CloseDialog(dialog.CommandsID)
+	case dialog.ActionSetCardBackground:
+		m.cardBgColor = msg.ColorHex
+		m.refreshStyles()
+		m.dialog.CloseDialog(dialog.CommandsID)
+		cmds = append(cmds, util.CmdHandler(util.NewInfoMsg("Background set to " + msg.ColorHex)))
+	case dialog.ActionToggleResources:
+		m.hideResources = !m.hideResources
+		m.dialog.CloseDialog(dialog.CommandsID)
 	case dialog.ActionQuit:
+		if m.mermaidServer != nil {
+			_ = m.mermaidServer.Stop()
+		}
 		cmds = append(cmds, tea.Quit)
 	case dialog.ActionEnableDockerMCP:
 		m.dialog.CloseDialog(dialog.CommandsID)
@@ -1604,6 +1733,9 @@ func (m *UI) handleDialogMsg(msg tea.Msg) tea.Cmd {
 		case dialog.PermissionDeny:
 			m.com.Workspace.PermissionDeny(msg.Permission)
 		}
+	case dialog.ActionQuestionResponse:
+		m.dialog.CloseDialog(dialog.AskQuestionID)
+		m.com.Workspace.QuestionSubmit(msg.Response)
 
 	case dialog.ActionFilePickerSelected:
 		cmds = append(cmds, tea.Sequence(
@@ -1769,7 +1901,11 @@ func (m *UI) handleSelectModel(msg dialog.ActionSelectModel) tea.Cmd {
 		if msg.ModelType == config.SelectedModelTypeLarge {
 			// Swap the theme live based on the newly selected large
 			// model's provider.
-			m.applyTheme(styles.ThemeForProvider(providerID))
+			themeName := ""
+			if cfg != nil && cfg.Options != nil && cfg.Options.TUI != nil {
+				themeName = cfg.Options.TUI.Theme
+			}
+			m.applyTheme(styles.ThemeForConfig(themeName, providerID))
 		}
 		if _, ok := cfg.Models[config.SelectedModelTypeSmall]; !ok {
 			// Ensure small model is set is unset.
@@ -2037,6 +2173,8 @@ func (m *UI) handleKeyPressMsg(msg tea.KeyPressMsg) tea.Cmd {
 					cmds = append(cmds, cmd)
 				}
 			case key.Matches(msg, m.keyMap.Tab):
+				m.cycleAgentMode()
+			case key.Matches(msg, m.keyMap.ShiftTab):
 				if m.state != uiLanding {
 					m.setState(m.state, uiFocusMain)
 					m.textarea.Blur()
@@ -2049,6 +2187,12 @@ func (m *UI) handleKeyPressMsg(msg tea.KeyPressMsg) tea.Cmd {
 					break
 				}
 				cmds = append(cmds, m.openEditor(m.textarea.Value()))
+			case key.Matches(msg, m.keyMap.Editor.OpenMermaid):
+				if m.isAgentBusy() {
+					cmds = append(cmds, util.ReportWarn("Agent is working, please wait..."))
+					break
+				}
+				cmds = append(cmds, m.openMermaidEditor())
 			case key.Matches(msg, m.keyMap.Editor.Newline):
 				prevHeight := m.textarea.Height()
 				m.textarea.InsertRune('\n')
@@ -2159,6 +2303,12 @@ func (m *UI) handleKeyPressMsg(msg tea.KeyPressMsg) tea.Cmd {
 			}
 		case uiFocusMain:
 			switch {
+			case key.Matches(msg, m.keyMap.Editor.OpenMermaid):
+				if m.isAgentBusy() {
+					cmds = append(cmds, util.ReportWarn("Agent is working, please wait..."))
+					break
+				}
+				cmds = append(cmds, m.openMermaidEditor())
 			case key.Matches(msg, m.keyMap.Tab):
 				m.focus = uiFocusEditor
 				cmds = append(cmds, m.textarea.Focus())
@@ -2381,8 +2531,12 @@ func (m *UI) Draw(scr uv.Screen, area uv.Rectangle) *tea.Cursor {
 
 		if m.textarea.Focused() {
 			cur := m.textarea.Cursor()
-			cur.X++                            // Adjust for app margins
-			cur.Y += m.layout.editor.Min.Y + 1 // Offset for attachments row
+			cur.X += m.layout.editor.Min.X + 3 // Adjust for app margins, card border and padding
+			offset := 0
+			if len(m.attachments.List()) > 0 {
+				offset = 1
+			}
+			cur.Y += m.layout.editor.Min.Y + offset
 			return cur
 		}
 	}
@@ -2738,7 +2892,7 @@ func (m *UI) updateSize() {
 
 	m.chat.SetSize(m.layout.main.Dx(), m.layout.main.Dy())
 	m.textarea.MaxHeight = TextareaMaxHeight
-	m.textarea.SetWidth(m.layout.editor.Dx())
+	m.textarea.SetWidth(max(1, m.layout.editor.Dx()-5))
 	m.renderPills()
 
 	// Handle different app states
@@ -2758,10 +2912,10 @@ func (m *UI) generateLayout(w, h int) uiLayout {
 
 	// The help height
 	helpHeight := 1
-	// The editor height: textarea height + margin for attachments and bottom spacing.
-	editorHeight := m.textarea.Height() + editorHeightMargin
+	// The editor height: textarea height + margin for attachments, bottom spacing, agent footer, and hint line.
+	editorHeight := m.textarea.Height() + editorHeightMargin + 4
 	// The sidebar width
-	sidebarWidth := 30
+	sidebarWidth := 36
 	// The header height
 	const landingHeaderHeight = 4
 
@@ -3012,15 +3166,9 @@ func (m *UI) openEditor(value string) tea.Cmd {
 // setEditorPrompt configures the textarea prompt function based on whether
 // yolo mode or bang mode is enabled.
 func (m *UI) setEditorPrompt(yolo bool) {
-	if m.bangMode {
-		m.textarea.SetPromptFunc(4, m.bangPromptFunc)
-		return
-	}
-	if yolo {
-		m.textarea.SetPromptFunc(4, m.yoloPromptFunc)
-		return
-	}
-	m.textarea.SetPromptFunc(4, m.normalPromptFunc)
+	m.textarea.SetPromptFunc(0, func(info textarea.PromptInfo) string {
+		return ""
+	})
 }
 
 // normalPromptFunc returns the normal editor prompt style ("  > " on first
@@ -3204,7 +3352,7 @@ func (m *UI) completionsPosition() image.Point {
 		}
 	}
 	return image.Point{
-		X: cur.X + m.layout.editor.Min.X,
+		X: cur.X + m.layout.editor.Min.X + 3,
 		Y: m.layout.editor.Min.Y + cur.Y,
 	}
 }
@@ -3260,17 +3408,154 @@ func (m *UI) randomizePlaceholders() {
 	m.readyPlaceholder = readyPlaceholders[rand.Intn(len(readyPlaceholders))]
 }
 
+// applyCardBackground ensures that the background color (#1c1c1e) is applied
+// consistently across all spaces, padding, and lines of the card content view,
+// even after ANSI reset escape codes.
+func (m *UI) applyCardBackground(view string) string {
+	if m.isTransparent {
+		return view
+	}
+	bgColorStr := m.cardBgColor
+	if bgColorStr == "" {
+		bgColorStr = "#1c1c1e"
+	}
+	bgStyle := lipgloss.NewStyle().Background(lipgloss.Color(bgColorStr))
+	bgSeq := bgStyle.Render(" ")
+	parts := strings.Split(bgSeq, " ")
+	if len(parts) < 2 {
+		return view
+	}
+	prefix := parts[0]
+	resetCode := parts[1]
+
+	res := strings.ReplaceAll(view, "\x1b[0m", "\x1b[0m"+prefix)
+	res = strings.ReplaceAll(res, "\x1b[m", "\x1b[m"+prefix)
+	if resetCode != "\x1b[0m" && resetCode != "\x1b[m" {
+		res = strings.ReplaceAll(res, resetCode, resetCode+prefix)
+	}
+	return prefix + res + "\x1b[0m"
+}
+
 // renderEditorView renders the editor view with attachments if any.
 func (m *UI) renderEditorView(width int) string {
 	var attachmentsView string
 	if len(m.attachments.List()) > 0 {
 		attachmentsView = m.attachments.Render(width)
 	}
-	return strings.Join([]string{
-		attachmentsView,
-		m.textarea.View(),
-		"", // margin at bottom of editor
-	}, "\n")
+
+	modeName := "Code"
+	modeColor := lipgloss.Color("#10B981") // default green
+	switch m.activeAgentMode {
+	case "coder":
+		modeName = "Code"
+		modeColor = lipgloss.Color("#10B981")
+	case "ask":
+		modeName = "Ask"
+		modeColor = lipgloss.Color("#F59E0B")
+	case "debug":
+		modeName = "Debug"
+		modeColor = lipgloss.Color("#60A5FA")
+	case "orchestrator":
+		modeName = "Orchestrator"
+		modeColor = lipgloss.Color("#A78BFA")
+	case "plan":
+		modeName = "Plan"
+		modeColor = lipgloss.Color("#34D399")
+	}
+
+	if m.bangMode {
+		modeName = "Shell"
+		modeColor = lipgloss.Color("#EF4444")
+	}
+
+	modeLabel := lipgloss.NewStyle().
+		Foreground(modeColor).
+		Bold(true).
+		Render(modeName)
+
+	separator := lipgloss.NewStyle().
+		Foreground(m.com.Styles.Help.ShortDesc.GetForeground()).
+		Render(" · ")
+
+	model := m.selectedLargeModel()
+	modelName := ""
+	if model != nil {
+		modelName = model.CatwalkCfg.Name
+	}
+	if modelName == "" {
+		agentCfg := m.com.Config().Agents[config.AgentCoder]
+		cfgModel := m.com.Config().GetModelByType(agentCfg.Model)
+		if cfgModel != nil {
+			modelName = cfgModel.Name
+		}
+	}
+	if modelName == "" {
+		modelName = "Auto"
+	}
+
+	if m.com.Workspace.PermissionSkipRequests() {
+		modelName += " (Yolo)"
+	}
+
+	reasoningStr := ""
+	if model != nil && model.CatwalkCfg.CanReason {
+		reasoningEffort := cmp.Or(model.ModelCfg.ReasoningEffort, model.CatwalkCfg.DefaultReasoningEffort)
+		if reasoningEffort != "" {
+			reasoningStr = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#FBBF24")).
+				Bold(true).
+				Render(string(reasoningEffort))
+		}
+	}
+
+	footerParts := []string{modeLabel}
+	modelStyle := lipgloss.NewStyle().
+		Foreground(m.com.Styles.Help.ShortKey.GetForeground())
+	footerParts = append(footerParts, modelStyle.Render(modelName))
+
+	if reasoningStr != "" {
+		footerParts = append(footerParts, reasoningStr)
+	}
+
+	footerLine := strings.Join(footerParts, separator)
+
+	cardContent := []string{
+		m.applyCardBackground(m.textarea.View()),
+		m.applyCardBackground(footerLine),
+	}
+
+	cardStyle := lipgloss.NewStyle().
+		Border(lipgloss.Border{
+			Left:       "┃",
+			TopLeft:    "┃",
+			BottomLeft: "┃",
+		}, false, false, false, true).
+		BorderForeground(modeColor).
+		Padding(0, 2, 0, 2).
+		Width(width)
+
+	if !m.isTransparent {
+		bgColorStr := m.cardBgColor
+		if bgColorStr == "" {
+			bgColorStr = "#1c1c1e"
+		}
+		cardStyle = cardStyle.Background(lipgloss.Color(bgColorStr))
+	}
+
+	cardView := cardStyle.Render(strings.Join(cardContent, "\n"))
+
+	hintStyle := lipgloss.NewStyle().
+		Foreground(m.com.Styles.Help.ShortDesc.GetForeground()).
+		MarginTop(1)
+
+	hintText := "tab switch mode   shift+tab focus chat   @ add file"
+
+	var parts []string
+	if attachmentsView != "" {
+		parts = append(parts, attachmentsView)
+	}
+	parts = append(parts, cardView, hintStyle.Render(hintText))
+	return strings.Join(parts, "\n")
 }
 
 // cacheSidebarLogo renders and caches the sidebar logo at the specified width.
@@ -3295,7 +3580,30 @@ func (m *UI) refreshStyles() {
 	if m.layout.sidebar.Dx() > 0 {
 		m.cacheSidebarLogo(m.layout.sidebar.Dx())
 	}
-	m.textarea.SetStyles(t.Editor.Textarea)
+	textareaStyles := t.Editor.Textarea
+	if !m.isTransparent {
+		bgColorStr := m.cardBgColor
+		if bgColorStr == "" {
+			bgColorStr = "#1c1c1e"
+		}
+		bgColor := lipgloss.Color(bgColorStr)
+		textareaStyles.Focused.Base = textareaStyles.Focused.Base.Background(bgColor)
+		textareaStyles.Focused.Text = textareaStyles.Focused.Text.Background(bgColor)
+		textareaStyles.Focused.CursorLine = textareaStyles.Focused.CursorLine.Background(bgColor)
+		textareaStyles.Focused.Placeholder = textareaStyles.Focused.Placeholder.Background(bgColor)
+		textareaStyles.Focused.Prompt = textareaStyles.Focused.Prompt.Background(bgColor)
+		textareaStyles.Focused.LineNumber = textareaStyles.Focused.LineNumber.Background(bgColor)
+		textareaStyles.Focused.CursorLineNumber = textareaStyles.Focused.CursorLineNumber.Background(bgColor)
+
+		textareaStyles.Blurred.Base = textareaStyles.Blurred.Base.Background(bgColor)
+		textareaStyles.Blurred.Text = textareaStyles.Blurred.Text.Background(bgColor)
+		textareaStyles.Blurred.CursorLine = textareaStyles.Blurred.CursorLine.Background(bgColor)
+		textareaStyles.Blurred.Placeholder = textareaStyles.Blurred.Placeholder.Background(bgColor)
+		textareaStyles.Blurred.Prompt = textareaStyles.Blurred.Prompt.Background(bgColor)
+		textareaStyles.Blurred.LineNumber = textareaStyles.Blurred.LineNumber.Background(bgColor)
+		textareaStyles.Blurred.CursorLineNumber = textareaStyles.Blurred.CursorLineNumber.Background(bgColor)
+	}
+	m.textarea.SetStyles(textareaStyles)
 	m.completions.SetStyles(t.Completions.Normal, t.Completions.Focused, t.Completions.Match)
 	m.attachments.Renderer().SetStyles(
 		t.Attachments.Normal,
@@ -3487,6 +3795,10 @@ func (m *UI) openDialog(id string) tea.Cmd {
 		if cmd := m.openNotificationsDialog(); cmd != nil {
 			cmds = append(cmds, cmd)
 		}
+	case dialog.ThemesID:
+		if cmd := m.openThemesDialog(); cmd != nil {
+			cmds = append(cmds, cmd)
+		}
 	case dialog.FilePickerID:
 		if cmd := m.openFilesDialog(); cmd != nil {
 			cmds = append(cmds, cmd)
@@ -3550,7 +3862,7 @@ func (m *UI) openCommandsDialog() tea.Cmd {
 	hasTodos := hasSession && hasIncompleteTodos(m.session.Todos)
 	hasQueue := m.promptQueue > 0
 
-	commands, err := dialog.NewCommands(m.com, sessionID, hasSession, hasTodos, hasQueue, m.customCommands, m.mcpPrompts)
+	commands, err := dialog.NewCommands(m.com, sessionID, hasSession, hasTodos, hasQueue, m.hideResources, m.customCommands, m.mcpPrompts)
 	if err != nil {
 		return util.ReportError(err)
 	}
@@ -3585,6 +3897,18 @@ func (m *UI) openNotificationsDialog() tea.Cmd {
 
 	notificationsDialog := dialog.NewNotifications(m.com)
 	m.dialog.OpenDialog(notificationsDialog)
+	return nil
+}
+
+// openThemesDialog opens the theme picker dialog.
+func (m *UI) openThemesDialog() tea.Cmd {
+	if m.dialog.ContainsDialog(dialog.ThemesID) {
+		m.dialog.BringToFront(dialog.ThemesID)
+		return nil
+	}
+
+	themesDialog := dialog.NewThemes(m.com)
+	m.dialog.OpenDialog(themesDialog)
 	return nil
 }
 
@@ -3640,6 +3964,16 @@ func (m *UI) openPermissionsDialog(perm permission.PermissionRequest) tea.Cmd {
 
 	permDialog := dialog.NewPermissions(m.com, perm, opts...)
 	m.dialog.OpenDialogWithGrace(permDialog)
+	return nil
+}
+
+// openQuestionDialog opens the clarifying questions dialog.
+func (m *UI) openQuestionDialog(req question.QuestionRequest) tea.Cmd {
+	// Close any existing question dialog first.
+	m.dialog.CloseDialog(dialog.AskQuestionID)
+
+	qDialog := dialog.NewAskQuestion(m.com, req)
+	m.dialog.OpenDialogWithGrace(qDialog)
 	return nil
 }
 
@@ -3972,15 +4306,38 @@ func (m *UI) drawSessionDetails(scr uv.Screen, area uv.Rectangle) {
 
 	remainingHeight := height - lipgloss.Height(detailsHeader) - lipgloss.Height(version)
 
-	const maxSectionWidth = 50
-	sectionWidth := max(1, min(maxSectionWidth, width/4-2)) // account for spacing between sections
-	maxItemsPerSection := remainingHeight - 3               // Account for section title and spacing
 
-	lspSection := m.lspInfo(sectionWidth, maxItemsPerSection, false)
-	mcpSection := m.mcpInfo(sectionWidth, maxItemsPerSection, false)
-	skillsSection := m.skillsInfo(sectionWidth, maxItemsPerSection, false)
-	filesSection := m.filesInfo(m.com.Workspace.WorkingDir(), sectionWidth, maxItemsPerSection, false)
-	sections := lipgloss.JoinHorizontal(lipgloss.Top, filesSection, " ", lspSection, " ", mcpSection, " ", skillsSection)
+	activeCount := 1 // Files is always active.
+	if !m.hideResources {
+		activeCount += 3
+	}
+
+	const maxSectionWidth = 50
+	sectionWidth := max(1, min(maxSectionWidth, (width-(activeCount-1)*2)/activeCount))
+	maxItemsPerSection := remainingHeight - 3 // Account for section title and spacing.
+
+	var activeSections []string
+	if filesSection := m.filesInfo(m.com.Workspace.WorkingDir(), sectionWidth, maxItemsPerSection, false); filesSection != "" {
+		activeSections = append(activeSections, filesSection)
+	}
+	if !m.hideResources {
+		activeSections = append(activeSections, m.lspInfo(sectionWidth, maxItemsPerSection, false))
+		activeSections = append(activeSections, m.mcpInfo(sectionWidth, maxItemsPerSection, false))
+		activeSections = append(activeSections, m.skillsInfo(sectionWidth, maxItemsPerSection, false))
+	}
+
+	var sections string
+	if len(activeSections) > 0 {
+		var joinParts []string
+		for i, sec := range activeSections {
+			if i > 0 {
+				joinParts = append(joinParts, "  ")
+			}
+			joinParts = append(joinParts, sec)
+		}
+		sections = lipgloss.JoinHorizontal(lipgloss.Top, joinParts...)
+	}
+
 	uv.NewStyledString(
 		s.CompactDetails.View.
 			Width(area.Dx()).
@@ -4092,4 +4449,137 @@ func renderLogo(t *styles.Styles, compact, hyper bool, width int) string {
 		Width:        width,
 		Hyper:        hyper,
 	})
+}
+
+// openMermaidEditor starts a local Mermaid live-reload editor server if it is
+// not already running and launches the user's web browser.
+func (m *UI) openMermaidEditor() tea.Cmd {
+	mermaidCode := m.findMostRecentMermaidCode()
+	if mermaidCode == "" {
+		return util.ReportWarn("No Mermaid diagram found in current session or editor to open.")
+	}
+
+	if m.mermaidServer != nil {
+		m.mermaidServer.UpdateCode(mermaidCode)
+		addr := m.mermaidServer.Addr()
+		go func() {
+			_ = browser.OpenURL("http://" + addr)
+		}()
+		return util.ReportInfo("Mermaid server updated, opening editor...")
+	}
+
+	server := mermaid.NewServer(
+		mermaidCode,
+		func(newCode string) {
+			// Periodic autosaves are handled by the browser sending update
+			// messages. We keep the server's current code in sync.
+		},
+		func(syncedCode string) {
+			// Triggered when user explicitly requests a sync back to Casspr.
+			m.syncMermaidCode(syncedCode)
+		},
+	)
+
+	addr, err := server.Start()
+	if err != nil {
+		return util.ReportError(err)
+	}
+
+	m.mermaidServer = server
+
+	go func() {
+		_ = browser.OpenURL("http://" + addr)
+	}()
+
+	return util.ReportInfo(fmt.Sprintf("Started Mermaid editor server on http://%s", addr))
+}
+
+// findMostRecentMermaidCode scans the active textarea and the message history
+// backwards to locate the most recent Mermaid code block.
+func (m *UI) findMostRecentMermaidCode() string {
+	textareaVal := m.textarea.Value()
+	if strings.Contains(textareaVal, "```mermaid") {
+		if code := extractMermaidCode(textareaVal); code != "" {
+			return code
+		}
+	}
+
+	if m.session != nil && m.session.ID != "" {
+		msgs, err := m.com.Workspace.ListMessages(context.Background(), m.session.ID)
+		if err == nil {
+			for i := len(msgs) - 1; i >= 0; i-- {
+				text := msgs[i].Content().Text
+				if strings.Contains(text, "```mermaid") {
+					if code := extractMermaidCode(text); code != "" {
+						return code
+					}
+				}
+			}
+		}
+	}
+	return ""
+}
+
+// syncMermaidCode writes the edited Mermaid code back to the textarea or the
+// last relevant message in the database.
+func (m *UI) syncMermaidCode(syncedCode string) {
+	textareaVal := m.textarea.Value()
+	if strings.Contains(textareaVal, "```mermaid") {
+		updated := replaceMermaidCode(textareaVal, syncedCode)
+		m.textarea.SetValue(updated)
+		return
+	}
+
+	if m.session != nil && m.session.ID != "" {
+		msgs, err := m.com.Workspace.ListMessages(context.Background(), m.session.ID)
+		if err == nil {
+			for i := len(msgs) - 1; i >= 0; i-- {
+				msg := msgs[i]
+				text := msg.Content().Text
+				if strings.Contains(text, "```mermaid") {
+					// Reconstruct the message parts with the updated text.
+					for pIdx, part := range msg.Parts {
+						if tc, ok := part.(message.TextContent); ok {
+							if strings.Contains(tc.Text, "```mermaid") {
+								msg.Parts[pIdx] = message.TextContent{
+									Text: replaceMermaidCode(tc.Text, syncedCode),
+								}
+							}
+						}
+					}
+					_ = m.com.Workspace.UpdateMessage(context.Background(), msg)
+					return
+				}
+			}
+		}
+	}
+}
+
+// extractMermaidCode extracts the raw content inside a ```mermaid code block.
+func extractMermaidCode(text string) string {
+	start := strings.Index(text, "```mermaid")
+	if start == -1 {
+		return ""
+	}
+	startContent := start + len("```mermaid\n")
+	end := strings.Index(text[startContent:], "```")
+	if end == -1 {
+		return strings.TrimSpace(text[startContent:])
+	}
+	return strings.TrimSpace(text[startContent : startContent+end])
+}
+
+// replaceMermaidCode replaces the body of the first ```mermaid code block with
+// newCode.
+func replaceMermaidCode(text, newCode string) string {
+	start := strings.Index(text, "```mermaid")
+	if start == -1 {
+		return text
+	}
+	startContent := start + len("```mermaid\n")
+	end := strings.Index(text[startContent:], "```")
+	if end == -1 {
+		return text[:startContent] + newCode + "\n```"
+	}
+	return text[:startContent] + newCode + "\n" + text[startContent+end:]
 }

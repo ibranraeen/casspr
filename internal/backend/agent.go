@@ -38,6 +38,16 @@ func (b *Backend) SendMessage(workspaceID string, msg proto.AgentMessage) error 
 		return ErrAgentNotInitialized
 	}
 
+	if msg.AgentMode != "" {
+		if err := ws.AgentCoordinator.SetActiveAgent(msg.AgentMode); err != nil {
+			return err
+		}
+	} else {
+		if err := ws.AgentCoordinator.SetActiveAgent("coder"); err != nil {
+			return err
+		}
+	}
+
 	if err := agent.ValidateCall(agent.SessionAgentCall{
 		SessionID:   msg.SessionID,
 		Prompt:      msg.Prompt,

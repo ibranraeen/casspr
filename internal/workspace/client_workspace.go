@@ -22,6 +22,7 @@ import (
 	"github.com/ibranraeen/casspr/internal/permission"
 	"github.com/ibranraeen/casspr/internal/proto"
 	"github.com/ibranraeen/casspr/internal/pubsub"
+	"github.com/ibranraeen/casspr/internal/question"
 	"github.com/ibranraeen/casspr/internal/session"
 	"github.com/ibranraeen/casspr/internal/skills"
 	"github.com/charmbracelet/x/powernap/pkg/lsp/protocol"
@@ -37,6 +38,8 @@ type ClientWorkspace struct {
 	mu     sync.RWMutex
 	ws     proto.Workspace
 	skills *skills.Manager
+
+	activeAgentMode string
 }
 
 // NewClientWorkspace creates a new ClientWorkspace that proxies all
@@ -54,9 +57,10 @@ func NewClientWorkspace(c *client.Client, ws proto.Workspace) *ClientWorkspace {
 	states := protoToSkillStates(ws.Skills)
 	mgr := skills.NewManager(nil, nil, states, skills.WithGlobalMirror())
 	return &ClientWorkspace{
-		client: c,
-		ws:     ws,
-		skills: mgr,
+		client:          c,
+		ws:              ws,
+		skills:          mgr,
+		activeAgentMode: "code",
 	}
 }
 
@@ -176,14 +180,29 @@ func (w *ClientWorkspace) ListAllUserMessages(ctx context.Context) ([]message.Me
 	return protoToMessages(msgs), nil
 }
 
+func (w *ClientWorkspace) UpdateMessage(ctx context.Context, msg message.Message) error {
+	// Remote message updates are not supported over HTTP client-server yet.
+	return nil
+}
+
 // -- Agent --
+
+func (w *ClientWorkspace) SetActiveAgent(name string) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.activeAgentMode = name
+	return nil
+}
 
 func (w *ClientWorkspace) AgentRun(ctx context.Context, sessionID, prompt string, attachments ...message.Attachment) error {
 	// The interactive TUI does not consume notify.RunComplete for
 	// completion detection (it observes message events directly),
 	// so passing an empty RunID is correct here: it skips the
 	// correlator stamping path without functional consequences.
-	return w.client.SendMessage(ctx, w.workspaceID(), sessionID, "", prompt, attachments...)
+	w.mu.RLock()
+	activeMode := w.activeAgentMode
+	w.mu.RUnlock()
+	return w.client.SendMessage(ctx, w.workspaceID(), sessionID, "", activeMode, prompt, attachments...)
 }
 
 func (w *ClientWorkspace) AgentRunShellCommand(ctx context.Context, sessionID, command string, termWidth int) (proto.ShellCommandResponse, error) {
@@ -215,6 +234,29 @@ func (w *ClientWorkspace) AgentModel() AgentModel {
 	if err != nil {
 		return AgentModel{}
 	}
+
+	w.mu.RLock()
+	activeMode := w.activeAgentMode
+	w.mu.RUnlock()
+
+	if activeMode == "code" {
+		activeMode = config.AgentCoder
+	}
+
+	cfg := w.Config()
+	if cfg != nil && activeMode != "" {
+		if agent, ok := cfg.Agents[activeMode]; ok {
+			if catwalkModel := cfg.GetModelByType(agent.Model); catwalkModel != nil {
+				if modelCfg, ok := cfg.Models[agent.Model]; ok {
+					return AgentModel{
+						CatwalkCfg: *catwalkModel,
+						ModelCfg:   modelCfg,
+					}
+				}
+			}
+		}
+	}
+
 	return AgentModel{
 		CatwalkCfg: info.Model,
 		ModelCfg:   info.ModelCfg,
@@ -332,6 +374,17 @@ func (w *ClientWorkspace) PermissionSkipRequests() bool {
 
 func (w *ClientWorkspace) PermissionSetSkipRequests(skip bool) {
 	_ = w.client.SetPermissionsSkipRequests(context.Background(), w.workspaceID(), skip)
+}
+
+// -- Questions --
+
+func (w *ClientWorkspace) QuestionSubmit(resp question.QuestionResponse) bool {
+	resolved, _ := w.client.SubmitQuestion(context.Background(), w.workspaceID(), proto.QuestionResponse{
+		QuestionID:      resp.QuestionID,
+		SelectedOptions: resp.SelectedOptions,
+		CustomAnswer:    resp.CustomAnswer,
+	})
+	return resolved
 }
 
 // -- FileTracker --
@@ -690,6 +743,35 @@ func (w *ClientWorkspace) translateEvent(ev any) tea.Msg {
 				ToolCallID: e.Payload.ToolCallID,
 				Granted:    e.Payload.Granted,
 				Denied:     e.Payload.Denied,
+			},
+		}
+	case pubsub.Event[proto.QuestionRequest]:
+		return pubsub.Event[question.QuestionRequest]{
+			Type: e.Type,
+			Payload: question.QuestionRequest{
+				ID:            e.Payload.ID,
+				SessionID:     e.Payload.SessionID,
+				ToolCallID:    e.Payload.ToolCallID,
+				Question:      e.Payload.Question,
+				Options:       e.Payload.Options,
+				IsMultiSelect: e.Payload.IsMultiSelect,
+				AllowCustom:   e.Payload.AllowCustom,
+			},
+		}
+	case pubsub.Event[proto.QuestionNotification]:
+		var resp *question.QuestionResponse
+		if e.Payload.Response != nil {
+			resp = &question.QuestionResponse{
+				QuestionID:      e.Payload.Response.QuestionID,
+				SelectedOptions: e.Payload.Response.SelectedOptions,
+				CustomAnswer:    e.Payload.Response.CustomAnswer,
+			}
+		}
+		return pubsub.Event[question.QuestionNotification]{
+			Type: e.Type,
+			Payload: question.QuestionNotification{
+				ToolCallID: e.Payload.ToolCallID,
+				Response:   resp,
 			},
 		}
 	case pubsub.Event[proto.Message]:

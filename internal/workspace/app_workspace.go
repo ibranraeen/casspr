@@ -18,6 +18,7 @@ import (
 	"github.com/ibranraeen/casspr/internal/oauth"
 	"github.com/ibranraeen/casspr/internal/permission"
 	"github.com/ibranraeen/casspr/internal/proto"
+	"github.com/ibranraeen/casspr/internal/question"
 	"github.com/ibranraeen/casspr/internal/session"
 	"github.com/ibranraeen/casspr/internal/shell"
 	"github.com/ibranraeen/casspr/internal/skills"
@@ -97,7 +98,18 @@ func (w *AppWorkspace) ListAllUserMessages(ctx context.Context) ([]message.Messa
 	return w.app.Messages.ListAllUserMessages(ctx)
 }
 
+func (w *AppWorkspace) UpdateMessage(ctx context.Context, msg message.Message) error {
+	return w.app.Messages.Update(ctx, msg)
+}
+
 // -- Agent --
+
+func (w *AppWorkspace) SetActiveAgent(name string) error {
+	if w.app.AgentCoordinator == nil {
+		return errors.New("agent coordinator not initialized")
+	}
+	return w.app.AgentCoordinator.SetActiveAgent(name)
+}
 
 func (w *AppWorkspace) AgentRun(ctx context.Context, sessionID, prompt string, attachments ...message.Attachment) error {
 	if w.app.AgentCoordinator == nil {
@@ -232,6 +244,12 @@ func (w *AppWorkspace) PermissionSkipRequests() bool {
 
 func (w *AppWorkspace) PermissionSetSkipRequests(skip bool) {
 	w.app.Permissions.SetSkipRequests(skip)
+}
+
+// -- Questions --
+
+func (w *AppWorkspace) QuestionSubmit(resp question.QuestionResponse) bool {
+	return w.app.Questions.Submit(resp)
 }
 
 // -- FileTracker --

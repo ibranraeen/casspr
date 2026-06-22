@@ -7,6 +7,7 @@ type KeyMap struct {
 		AddFile     key.Binding
 		SendMessage key.Binding
 		OpenEditor  key.Binding
+		OpenMermaid key.Binding
 		Newline     key.Binding
 		AddImage    key.Binding
 		PasteImage  key.Binding
@@ -66,6 +67,7 @@ type KeyMap struct {
 	Suspend    key.Binding
 	Sessions   key.Binding
 	Tab        key.Binding
+	ShiftTab   key.Binding
 	ToggleYolo key.Binding
 }
 
@@ -97,7 +99,11 @@ func DefaultKeyMap() KeyMap {
 		),
 		Tab: key.NewBinding(
 			key.WithKeys("tab"),
-			key.WithHelp("tab", "change focus"),
+			key.WithHelp("tab", "switch mode"),
+		),
+		ShiftTab: key.NewBinding(
+			key.WithKeys("shift+tab"),
+			key.WithHelp("shift+tab", "focus chat"),
 		),
 		ToggleYolo: key.NewBinding(
 			key.WithKeys("ctrl+y"),
@@ -116,6 +122,10 @@ func DefaultKeyMap() KeyMap {
 	km.Editor.OpenEditor = key.NewBinding(
 		key.WithKeys("ctrl+o"),
 		key.WithHelp("ctrl+o", "open editor"),
+	)
+	km.Editor.OpenMermaid = key.NewBinding(
+		key.WithKeys("ctrl+m"),
+		key.WithHelp("ctrl+m", "open mermaid"),
 	)
 	km.Editor.Newline = key.NewBinding(
 		key.WithKeys("shift+enter", "ctrl+j"),

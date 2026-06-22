@@ -1,9 +1,13 @@
 package chat
 
 import (
+	"fmt"
+	"regexp"
 	"strings"
 
 	"charm.land/glamour/v2"
+	"charm.land/lipgloss/v2"
+	"github.com/ibranraeen/casspr/internal/mermaid"
 	"github.com/ibranraeen/casspr/internal/ui/common"
 )
 
@@ -50,18 +54,14 @@ func (s *streamingMarkdown) Reset() {
 // reusing the cached stable-prefix render when it is safe to do so.
 // On any uncertainty the call falls back to a full render via
 // renderer and leaves the cache untouched (or drops it).
-//
-// The returned string has its trailing newline trimmed to match
-// the existing renderMarkdown contract on AssistantMessageItem.
-//
-// Concurrency: glamour's Render is stateful and not safe for
-// concurrent invocation on a shared renderer. Crush's TUI is
-// single-threaded so production never contends, but parallel
-// callers (most notably the test suite) must serialize. We hold
-// [common.LockMarkdownRenderer] for the entire prefix +
-// trailing render sequence so other goroutines cannot interleave
-// their own Render calls and corrupt goldmark's BlockStack.
 func (s *streamingMarkdown) Render(content string, width int, renderer *glamour.TermRenderer) string {
+	rawContent := mermaid.InsertLiveLinks(content)
+	replacedContent, links := extractMermaidLinks(rawContent)
+	rendered := s.renderInternal(replacedContent, width, renderer)
+	return restoreMermaidLinks(rendered, links)
+}
+
+func (s *streamingMarkdown) renderInternal(content string, width int, renderer *glamour.TermRenderer) string {
 	mu := common.LockMarkdownRenderer(renderer)
 	mu.Lock()
 	defer mu.Unlock()
@@ -737,4 +737,48 @@ func isLinkRefDefinition(line string) bool {
 	}
 	// At least one non-whitespace character of destination.
 	return i < len(line)
+}
+
+var linkRegex = regexp.MustCompile(`\[Open in Mermaid Live Editor ↗\]\((https?://[^\s)]+)\)`)
+
+type mermaidLink struct {
+	placeholder string
+	url         string
+}
+
+// extractMermaidLinks finds all Mermaid live editor links in content,
+// replaces them with short placeholders to prevent Glamour from
+// wrapping or formatting them, and returns the modified content
+// along with the extracted URL mappings.
+func extractMermaidLinks(content string) (string, []mermaidLink) {
+	matches := linkRegex.FindAllStringSubmatch(content, -1)
+	if len(matches) == 0 {
+		return content, nil
+	}
+
+	var links []mermaidLink
+	replaced := content
+	for i, match := range matches {
+		url := match[1]
+		placeholder := fmt.Sprintf("mermaidlink%d", i)
+		links = append(links, mermaidLink{placeholder: placeholder, url: url})
+		replaced = strings.Replace(replaced, match[0], placeholder, 1)
+	}
+	return replaced, links
+}
+
+// restoreMermaidLinks restores the replaced Mermaid placeholders in
+// the Glamour-rendered output with a styled lipgloss terminal hyperlink
+// using the OSC 8 protocol.
+func restoreMermaidLinks(rendered string, links []mermaidLink) string {
+	result := rendered
+	for _, l := range links {
+		styledText := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#10b981")).
+			Underline(true).
+			Render("Open in Mermaid Live Editor ↗")
+		styled := fmt.Sprintf("\x1b]8;;%s\x1b\\%s\x1b]8;;\x1b\\", l.url, styledText)
+		result = strings.Replace(result, l.placeholder, styled, -1)
+	}
+	return result
 }

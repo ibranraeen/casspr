@@ -36,20 +36,23 @@ func cachedBuiltinSkills() []*skills.Skill {
 // skillsInfo renders the skill discovery status section showing loaded and
 // invalid skills.
 func (m *UI) skillsInfo(width, maxItems int, isSection bool) string {
+	if m.hideResources {
+		return ""
+	}
+
 	t := m.com.Styles
+
+	items := m.skillStatusItems()
 
 	title := t.Resource.Heading.Render("Skills")
 	if isSection {
 		title = common.Section(t, title, width)
 	}
 
-	items := m.skillStatusItems()
-	if len(items) == 0 {
-		list := t.Resource.AdditionalText.Render("None")
-		return lipgloss.NewStyle().Width(width).Render(fmt.Sprintf("%s\n\n%s", title, list))
+	list := t.Resource.AdditionalText.Render("None")
+	if len(items) > 0 {
+		list = skillsList(t, items, width, maxItems)
 	}
-
-	list := skillsList(t, items, width, maxItems)
 	return lipgloss.NewStyle().Width(width).Render(fmt.Sprintf("%s\n\n%s", title, list))
 }
 

@@ -39,19 +39,47 @@ func (m *UI) landingView() string {
 		layout.Fill(1),
 	).Split(m.layout.main).Assign(new(image.Rectangle), &remainingHeightArea)
 
-	mcpLspSectionWidth := min(30, (width-2)/3)
 
-	lspSection := m.lspInfo(mcpLspSectionWidth, max(1, remainingHeightArea.Dy()), false)
-	mcpSection := m.mcpInfo(mcpLspSectionWidth, max(1, remainingHeightArea.Dy()), false)
-	skillsSection := m.skillsInfo(mcpLspSectionWidth, max(1, remainingHeightArea.Dy()), false)
+	var activeCount int
+	if !m.hideResources {
+		activeCount = 3
+	}
 
-	content := lipgloss.JoinHorizontal(lipgloss.Left, lspSection, " ", mcpSection, " ", skillsSection)
+	mcpLspSectionWidth := width
+	if activeCount > 0 {
+		mcpLspSectionWidth = min(30, (width-(activeCount-1))/activeCount)
+	}
+
+	var activeSections []string
+	if !m.hideResources {
+		activeSections = append(activeSections, m.lspInfo(mcpLspSectionWidth, max(1, remainingHeightArea.Dy()), false))
+		activeSections = append(activeSections, m.mcpInfo(mcpLspSectionWidth, max(1, remainingHeightArea.Dy()), false))
+		activeSections = append(activeSections, m.skillsInfo(mcpLspSectionWidth, max(1, remainingHeightArea.Dy()), false))
+	}
+
+	var content string
+	if len(activeSections) > 0 {
+		var joinParts []string
+		for i, sec := range activeSections {
+			if i > 0 {
+				joinParts = append(joinParts, " ")
+			}
+			joinParts = append(joinParts, sec)
+		}
+		content = lipgloss.JoinHorizontal(lipgloss.Left, joinParts...)
+	}
+
+	var viewBlocks []string
+	viewBlocks = append(viewBlocks, infoSection)
+	if content != "" {
+		viewBlocks = append(viewBlocks, "", content)
+	}
 
 	return lipgloss.NewStyle().
 		Width(width).
 		Height(m.layout.main.Dy() - 1).
 		PaddingTop(1).
 		Render(
-			lipgloss.JoinVertical(lipgloss.Left, infoSection, "", content),
+			lipgloss.JoinVertical(lipgloss.Left, viewBlocks...),
 		)
 }

@@ -2,8 +2,10 @@ package version
 
 import (
 	"os"
+	"regexp"
 	"runtime/debug"
 	"strconv"
+	"strings"
 )
 
 // Build-time parameters set via -ldflags.
@@ -18,6 +20,24 @@ var (
 	BuildID = ""
 )
 
+var (
+	// Matches Go pseudo-version suffixes like -0.20260619214928-1849ddd1abcd
+	pseudoVersionRegex = regexp.MustCompile(`-(?:[a-zA-Z0-9-.]*\.)?[0-9]{14}-[0-9a-fA-F]+$`)
+	// Matches git describe suffixes like -2-g1849ddd1
+	gitDescribeRegex = regexp.MustCompile(`-[0-9]+-g[0-9a-fA-F]+$`)
+	// Matches raw commit hash suffix like -1849ddd1 (minimum 8 hex characters)
+	commitSuffixRegex = regexp.MustCompile(`-[0-9a-fA-F]{8,40}$`)
+)
+
+func prunePseudoVersion(v string) string {
+	// Strip build metadata/dirty suffix (e.g. +dirty)
+	v = strings.Split(v, "+")[0]
+	v = pseudoVersionRegex.ReplaceAllString(v, "")
+	v = gitDescribeRegex.ReplaceAllString(v, "")
+	v = commitSuffixRegex.ReplaceAllString(v, "")
+	return v
+}
+
 // A user may install crush using `go install github.com/ibranraeen/casspr@latest`.
 // without -ldflags, in which case the version above is unset. As a workaround
 // we use the embedded build version that *is* set when using `go install` (and
@@ -30,6 +50,8 @@ func init() {
 			Version = mainVersion
 		}
 	}
+
+	Version = prunePseudoVersion(Version)
 
 	// Derive BuildID when not set via ldflags.
 	if BuildID == "" {

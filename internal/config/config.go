@@ -57,8 +57,12 @@ const (
 )
 
 const (
-	AgentCoder string = "coder"
-	AgentTask  string = "task"
+	AgentCoder        string = "coder"
+	AgentTask         string = "task"
+	AgentAsk          string = "ask"
+	AgentDebug        string = "debug"
+	AgentOrchestrator string = "orchestrator"
+	AgentPlan         string = "plan"
 )
 
 type SelectedModel struct {
@@ -221,8 +225,7 @@ type LSPConfig struct {
 type TUIOptions struct {
 	CompactMode bool   `json:"compact_mode,omitempty" jsonschema:"description=Enable compact mode for the TUI interface,default=false"`
 	DiffMode    string `json:"diff_mode,omitempty" jsonschema:"description=Diff mode for the TUI interface,enum=unified,enum=split"`
-	// Here we can add themes later or any TUI related options
-	//
+	Theme       string `json:"theme,omitempty" jsonschema:"description=Color theme for the TUI interface,default=default,example=nord"`
 
 	Completions Completions `json:"completions,omitzero" jsonschema:"description=Completions UI options"`
 	Transparent *bool       `json:"transparent,omitempty" jsonschema:"description=Enable transparent background for the TUI interface,default=false"`
@@ -697,6 +700,7 @@ func allToolNames() []string {
 		"write",
 		"list_mcp_resources",
 		"read_mcp_resource",
+		"ask_question",
 	}
 }
 
@@ -748,6 +752,42 @@ func (c *Config) SetupAgents() {
 			AllowedTools: resolveReadOnlyTools(allowedTools),
 			// NO MCPs or LSPs by default
 			AllowedMCP: map[string][]string{},
+		},
+
+		AgentAsk: {
+			ID:           AgentAsk,
+			Name:         "Ask",
+			Description:  "An agent that answers questions about the codebase without writing code.",
+			Model:        SelectedModelTypeLarge,
+			ContextPaths: c.Options.ContextPaths,
+			AllowedTools: filterSlice(allowedTools, []string{"glob", "grep", "ls", "sourcegraph", "view", "casspr_info", "todos", "lsp_diagnostics", "lsp_references"}, true),
+		},
+
+		AgentDebug: {
+			ID:           AgentDebug,
+			Name:         "Debug",
+			Description:  "An agent that helps with debugging, troubleshooting, and diagnosing issues.",
+			Model:        SelectedModelTypeLarge,
+			ContextPaths: c.Options.ContextPaths,
+			AllowedTools: filterSlice(allowedTools, []string{"bash", "glob", "grep", "ls", "sourcegraph", "view", "casspr_info", "todos", "lsp_diagnostics", "lsp_references", "lsp_restart"}, true),
+		},
+
+		AgentOrchestrator: {
+			ID:           AgentOrchestrator,
+			Name:         "Orchestrator",
+			Description:  "An agent that orchestrates sub-agents to solve complex tasks.",
+			Model:        SelectedModelTypeLarge,
+			ContextPaths: c.Options.ContextPaths,
+			AllowedTools: filterSlice(allowedTools, []string{"agent", "glob", "grep", "ls", "sourcegraph", "view", "casspr_info", "todos", "lsp_diagnostics", "lsp_references"}, true),
+		},
+
+		AgentPlan: {
+			ID:           AgentPlan,
+			Name:         "Plan",
+			Description:  "An agent that creates design and implementation plans.",
+			Model:        SelectedModelTypeLarge,
+			ContextPaths: c.Options.ContextPaths,
+			AllowedTools: filterSlice(allowedTools, []string{"glob", "grep", "ls", "sourcegraph", "view", "casspr_info", "todos", "lsp_diagnostics", "lsp_references"}, true),
 		},
 	}
 	c.Agents = agents

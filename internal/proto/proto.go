@@ -131,6 +131,7 @@ func (a AgentInfo) IsZero() bool {
 type AgentMessage struct {
 	SessionID   string       `json:"session_id"`
 	RunID       string       `json:"run_id,omitempty"`
+	AgentMode   string       `json:"agent_mode,omitempty"`
 	Prompt      string       `json:"prompt"`
 	Attachments []Attachment `json:"attachments,omitempty"`
 }
