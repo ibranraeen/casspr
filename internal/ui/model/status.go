@@ -52,6 +52,11 @@ func (s *Status) SetWidth(width int) {
 	s.help.SetWidth(width - horizontalPadding)
 }
 
+// HasMessage returns whether there is a status message to display.
+func (s *Status) HasMessage() bool {
+	return !s.msg.IsEmpty()
+}
+
 // ShowingAll returns whether the full help view is shown.
 func (s *Status) ShowingAll() bool {
 	return s.help.ShowAll
@@ -69,10 +74,7 @@ func (s *Status) SetHideHelp(hideHelp bool) {
 
 // Draw draws the status bar onto the screen.
 func (s *Status) Draw(scr uv.Screen, area uv.Rectangle) {
-	if !s.hideHelp {
-		helpView := s.com.Styles.Status.Help.Render(s.help.View(s.helpKm))
-		uv.NewStyledString(helpView).Draw(scr, area)
-	}
+	// The bottom help view rendering is disabled per user request.
 
 	// Render notifications
 	if s.msg.IsEmpty() {

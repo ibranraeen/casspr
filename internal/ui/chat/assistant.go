@@ -438,14 +438,27 @@ func (a *AssistantMessageItem) cachedError(width int) string {
 	return out
 }
 
-// renderThinking renders the thinking/reasoning content with footer.
-//
-// Slicing happens AFTER glamour rendering so fenced code blocks, list
-// continuations, and tables are not split mid-block — the same
-// boundary problem §4.4 of the design note flags. The bordered
-// ThinkingBox style is applied on top of the (already-windowed)
-// lines so the visual box matches what the user sees today.
 func (a *AssistantMessageItem) renderThinking(thinking string, width int) string {
+	var titleText string
+	if a.message.IsThinking() {
+		titleText = "Thinking..."
+	} else {
+		duration := a.message.ThinkingDuration()
+		if duration > 0 {
+			titleText = "Thought for " + duration.String()
+		} else {
+			titleText = "Thought"
+		}
+	}
+
+	headerStyle := lipgloss.NewStyle().Foreground(a.sty.LSP.WarningDiagnostic.GetForeground())
+
+	if a.thinkingViewMode == thinkingCollapsed {
+		header := headerStyle.Render("+ " + titleText)
+		a.thinkingBoxHeight = 1
+		return header
+	}
+
 	renderer := common.QuietMarkdownRenderer(a.sty, width)
 	mu := common.LockMarkdownRenderer(renderer)
 	mu.Lock()
@@ -459,16 +472,7 @@ func (a *AssistantMessageItem) renderThinking(thinking string, width int) string
 	lines := strings.Split(rendered, "\n")
 	totalLines := len(lines)
 
-	switch a.thinkingViewMode {
-	case thinkingCollapsed:
-		if totalLines > maxCollapsedThinkingHeight {
-			lines = lines[totalLines-maxCollapsedThinkingHeight:]
-			hint := a.sty.Messages.ThinkingTruncationHint.Render(
-				fmt.Sprintf(assistantMessageTruncateFormat, totalLines-maxCollapsedThinkingHeight),
-			)
-			lines = append([]string{hint, ""}, lines...)
-		}
-	case thinkingTailWindow:
+	if a.thinkingViewMode == thinkingTailWindow {
 		if totalLines > maxExpandedThinkingTailLines {
 			lines = lines[totalLines-maxExpandedThinkingTailLines:]
 			hint := a.sty.Messages.ThinkingTruncationHint.Render(
@@ -479,22 +483,11 @@ func (a *AssistantMessageItem) renderThinking(thinking string, width int) string
 	}
 
 	thinkingStyle := a.sty.Messages.ThinkingBox.Width(width)
-	result := thinkingStyle.Render(strings.Join(lines, "\n"))
+	content := thinkingStyle.Render(strings.Join(lines, "\n"))
+
+	header := headerStyle.Render("- " + titleText)
+	result := header + "\n\n" + content
 	a.thinkingBoxHeight = lipgloss.Height(result)
-
-	var footer string
-	// if thinking is done add the thought for footer
-	if !a.message.IsThinking() || len(a.message.ToolCalls()) > 0 {
-		duration := a.message.ThinkingDuration()
-		if duration.String() != "0s" {
-			footer = a.sty.Messages.ThinkingFooterTitle.Render("Thought for ") +
-				a.sty.Messages.ThinkingFooterDuration.Render(duration.String())
-		}
-	}
-
-	if footer != "" {
-		result += "\n\n" + footer
-	}
 
 	return result
 }

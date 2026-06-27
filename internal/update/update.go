@@ -9,6 +9,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"golang.org/x/mod/semver"
 )
 
 const (
@@ -36,11 +38,14 @@ func (i Info) IsDevelopment() bool {
 
 // Available returns true if there's an update available.
 //
-// If both current and latest are stable versions, returns true if versions are
-// different.
+// If both current and latest are stable versions, returns true if latest
+// is greater than current.
 // If current is a pre-release and latest isn't, returns true.
 // If latest is a pre-release and current isn't, returns false.
 func (i Info) Available() bool {
+	if i.IsDevelopment() {
+		return i.Current != i.Latest
+	}
 	cpr := strings.Contains(i.Current, "-")
 	lpr := strings.Contains(i.Latest, "-")
 	// current is pre release && latest isn't a prerelease
@@ -51,6 +56,13 @@ func (i Info) Available() bool {
 	if lpr && !cpr {
 		return false
 	}
+
+	c := "v" + i.Current
+	l := "v" + i.Latest
+	if semver.IsValid(c) && semver.IsValid(l) {
+		return semver.Compare(c, l) < 0
+	}
+
 	return i.Current != i.Latest
 }
 

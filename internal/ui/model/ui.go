@@ -89,7 +89,7 @@ const TextareaMaxHeight = 15
 const editorHeightMargin = 2
 
 // TextareaMinHeight is the minimum height of the prompt textarea.
-const TextareaMinHeight = 3
+const TextareaMinHeight = 1
 
 // uiFocusState represents the current focus state of the UI.
 type uiFocusState uint8
@@ -2532,9 +2532,9 @@ func (m *UI) Draw(scr uv.Screen, area uv.Rectangle) *tea.Cursor {
 		if m.textarea.Focused() {
 			cur := m.textarea.Cursor()
 			cur.X += m.layout.editor.Min.X + 3 // Adjust for app margins, card border and padding
-			offset := 0
+			offset := 1                        // Account for 1-line top padding inside the card
 			if len(m.attachments.List()) > 0 {
-				offset = 1
+				offset += 1
 			}
 			cur.Y += m.layout.editor.Min.Y + offset
 			return cur
@@ -2912,8 +2912,13 @@ func (m *UI) generateLayout(w, h int) uiLayout {
 
 	// The help height
 	helpHeight := 1
-	// The editor height: textarea height + margin for attachments, bottom spacing, agent footer, and hint line.
-	editorHeight := m.textarea.Height() + editorHeightMargin + 4
+	// The editor height: textarea height + margin for attachments (if any),
+	// bottom spacing, agent footer, and hint line.
+	attachmentsHeight := 0
+	if len(m.attachments.List()) > 0 {
+		attachmentsHeight = 1
+	}
+	editorHeight := m.textarea.Height() + attachmentsHeight + 6
 	// The sidebar width
 	sidebarWidth := 36
 	// The header height
@@ -2933,8 +2938,6 @@ func (m *UI) generateLayout(w, h int) uiLayout {
 		layout.Fill(1),
 	).Split(area).Assign(&appRect, &helpRect)
 	appRect.Min.Y += 1
-	appRect.Max.Y -= 1
-	helpRect.Min.Y -= 1
 	appRect.Min.X += 1
 	appRect.Max.X -= 1
 
@@ -3521,6 +3524,7 @@ func (m *UI) renderEditorView(width int) string {
 
 	cardContent := []string{
 		m.applyCardBackground(m.textarea.View()),
+		m.applyCardBackground(""),
 		m.applyCardBackground(footerLine),
 	}
 
@@ -3531,7 +3535,7 @@ func (m *UI) renderEditorView(width int) string {
 			BottomLeft: "┃",
 		}, false, false, false, true).
 		BorderForeground(modeColor).
-		Padding(0, 2, 0, 2).
+		Padding(1, 2, 1, 2).
 		Width(width)
 
 	if !m.isTransparent {
@@ -3548,7 +3552,7 @@ func (m *UI) renderEditorView(width int) string {
 		Foreground(m.com.Styles.Help.ShortDesc.GetForeground()).
 		MarginTop(1)
 
-	hintText := "tab switch mode   shift+tab focus chat   @ add file"
+	hintText := "tab switch mode   shift+tab focus chat   / or ctrl+p commands   @ add file"
 
 	var parts []string
 	if attachmentsView != "" {

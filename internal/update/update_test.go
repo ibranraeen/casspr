@@ -37,6 +37,23 @@ func TestCheckForUpdate_Beta(t *testing.T) {
 	})
 }
 
+func TestCheckForUpdate_NewerThanLatest(t *testing.T) {
+	// Current is newer than latest, so no update should be available.
+	info, err := Check(t.Context(), "v0.78.2", testClient{"v0.78.0"})
+	require.NoError(t, err)
+	require.NotNil(t, info)
+	require.False(t, info.Available())
+}
+
+func TestCheckForUpdate_Development(t *testing.T) {
+	// Development builds should return true for update checks to trigger
+	// the warning.
+	info, err := Check(t.Context(), "devel", testClient{"v0.78.0"})
+	require.NoError(t, err)
+	require.NotNil(t, info)
+	require.True(t, info.Available())
+}
+
 type testClient struct{ tag string }
 
 // Latest implements Client.
